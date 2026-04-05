@@ -1,8 +1,11 @@
 package com.github.us_aito.image_select_viewer;
 
 import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.ImageIcon;
 import java.awt.BorderLayout;
 
 import com.github.us_aito.image_select_viewer.ImageLoader;
@@ -19,9 +22,22 @@ public class MainFrame {
     panel.setLayout(new BorderLayout());
     frame.getContentPane().add(panel, BorderLayout.CENTER);
 
+    // メインビューのラベルを作成しメインフレームに追加
+    JLabel mainView = new JLabel();
+    panel.add(mainView, BorderLayout.CENTER);
+
     // サムネイルリストのスクロールペイン作成しメインパネルに追加
     JScrollPane thumbnailPane = ThumbnailList.createThumbnailListPanel("/Users/yu/git/java_labo/image_select_viewer_aid/src/main/resources");
     panel.add(thumbnailPane, BorderLayout.LINE_START);
+    JList imageList = (JList)thumbnailPane.getViewport().getView();
+    imageList.addListSelectionListener(e -> {
+      if (!e.getValueIsAdjusting()) {
+        ImageIcon selected = (ImageIcon)imageList.getSelectedValue();
+        if (selected != null) {
+          // mainViewを更新する処理
+        }
+      }
+    });
 
     return frame;
   }
