@@ -8,20 +8,21 @@ import java.awt.image.BufferedImage;
 import java.awt.Image;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
-public class ImageLoader extends SwingWorker<Integer, Integer> {
+public class ImageLoader extends SwingWorker<Void, ImageIcon> {
   String imagePath;
-  DefaultListModel model;
+  DefaultListModel<ImageIcon> model;
   private static int targetWidth = 100;
   private static int targetHeight = 100;
 
-  public ImageLoader(String imagePath, DefaultListModel model) {
+  public ImageLoader(String imagePath, DefaultListModel<ImageIcon> model) {
     this.imagePath = imagePath;
     this.model = model;
   }
 
   @Override
-  public Integer doInBackground() {
+  public Void doInBackground() {
     System.out.println("start doInBackground");
     File imageDir = new File(this.imagePath);
     File imageFileList[] = imageDir.listFiles();
@@ -35,16 +36,28 @@ public class ImageLoader extends SwingWorker<Integer, Integer> {
         e.printStackTrace();
       }
 
+      if (originalImageBuffer == null) {
+        System.out.println("skipped: " + imageFileList[i].getName());
+        continue;
+      }
+
       Image scaledImage = originalImageBuffer.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
       if (scaledImage != null) {
         ImageIcon thumbnailIcon = new ImageIcon(scaledImage);
-        model.addElement(thumbnailIcon);
+        publish(thumbnailIcon);
       } else {
         System.err.println("scaledImage is null");
       }
     }
 
     return null;
+  }
+
+  @Override
+  public void process(List<ImageIcon> chunks) {
+    for(ImageIcon icon: chunks) {
+      model.addElement(icon);
+    }
   }
 
 }

@@ -3,33 +3,25 @@ package com.github.us_aito.image_select_viewer;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.DefaultListModel;
-import javax.swing.JList;
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 
 import com.github.us_aito.image_select_viewer.ImageLoader;
 
 public class MainFrame {
   public static JFrame createMainFrame(String title) {
+    // 本体フレームの作成
     JFrame frame = new JFrame(title);
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     frame.setBounds(300, 80, 500, 600);
 
-    DefaultListModel model = new DefaultListModel();
-    JList imageList = new JList(model);
-
-    JScrollPane sp = new JScrollPane();
-    sp.getViewport().setView(imageList);
-    sp.setPreferredSize(new Dimension(200, 800));
-
+    // メインパネルを作成しメインフレームに追加
     JPanel panel = new JPanel();
-    panel.add(sp);
-
+    panel.setLayout(new BorderLayout());
     frame.getContentPane().add(panel, BorderLayout.CENTER);
 
-    ImageLoader il = new ImageLoader("/Users/yu/git/java_labo/image_select_viewer_aid/src/main/resources", model);
-    il.execute();
+    // サムネイルリストのスクロールペイン作成しメインパネルに追加
+    JScrollPane thumbnailPane = ThumbnailList.createThumbnailListPanel("/Users/yu/git/java_labo/image_select_viewer_aid/src/main/resources");
+    panel.add(thumbnailPane, BorderLayout.LINE_START);
 
     return frame;
   }
