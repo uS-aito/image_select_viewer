@@ -18,7 +18,7 @@
   - _Requirements: 5.1, 5.2_
   - _Boundary: PngMetadataReader_
 
-- [ ] 2.2 (P) サムネイル読み込みロジックを `ImageFile` モデル対応に変更する
+- [x] 2.2 (P) サムネイル読み込みロジックを `ImageFile` モデル対応に変更する
   - `SwingWorker` の型パラメータを `SwingWorker<Void, ImageFile>` に変更する
   - `doInBackground()` 内で `ImageFile(file, thumbnail)` を生成して publish するよう変更する
   - コンストラクタ引数の `DefaultListModel` 型を `DefaultListModel<ImageFile>` に変更する

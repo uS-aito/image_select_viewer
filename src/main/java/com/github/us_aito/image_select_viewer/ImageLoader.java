@@ -10,13 +10,13 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
-public class ImageLoader extends SwingWorker<Void, ImageIcon> {
+public class ImageLoader extends SwingWorker<Void, ImageFile> {
   String imagePath;
-  DefaultListModel<ImageIcon> model;
+  DefaultListModel<ImageFile> model;
   private static int targetWidth = 100;
   private static int targetHeight = 100;
 
-  public ImageLoader(String imagePath, DefaultListModel<ImageIcon> model) {
+  public ImageLoader(String imagePath, DefaultListModel<ImageFile> model) {
     this.imagePath = imagePath;
     this.model = model;
   }
@@ -44,7 +44,7 @@ public class ImageLoader extends SwingWorker<Void, ImageIcon> {
       Image scaledImage = originalImageBuffer.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
       if (scaledImage != null) {
         ImageIcon thumbnailIcon = new ImageIcon(scaledImage);
-        publish(thumbnailIcon);
+        publish(new ImageFile(imageFileList[i], thumbnailIcon));
       } else {
         System.err.println("scaledImage is null");
       }
@@ -54,9 +54,9 @@ public class ImageLoader extends SwingWorker<Void, ImageIcon> {
   }
 
   @Override
-  public void process(List<ImageIcon> chunks) {
-    for(ImageIcon icon: chunks) {
-      model.addElement(icon);
+  public void process(List<ImageFile> chunks) {
+    for(ImageFile imageFile: chunks) {
+      model.addElement(imageFile);
     }
   }
 
