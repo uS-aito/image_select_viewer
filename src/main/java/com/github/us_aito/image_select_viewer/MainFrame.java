@@ -2,15 +2,12 @@ package com.github.us_aito.image_select_viewer;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.ImageIcon;
 import java.awt.BorderLayout;
 
-import com.github.us_aito.image_select_viewer.ImageLoader;
-
 public class MainFrame {
+  private static String imagePath = "/Users/yu/git/java_labo/image_select_viewer_aid/src/main/resources";
+
   public static JFrame createMainFrame(String title) {
     // 本体フレームの作成
     JFrame frame = new JFrame(title);
@@ -27,17 +24,28 @@ public class MainFrame {
     panel.add(mainView, BorderLayout.CENTER);
 
     // サムネイルリストのスクロールペイン作成しメインパネルに追加
-    JScrollPane thumbnailPane = ThumbnailList.createThumbnailListPanel("/Users/yu/git/java_labo/image_select_viewer_aid/src/main/resources");
-    panel.add(thumbnailPane, BorderLayout.LINE_START);
-    JList imageList = (JList)thumbnailPane.getViewport().getView();
-    imageList.addListSelectionListener(e -> {
+    ThumbnailList thumbnailList = new ThumbnailList(imagePath);
+    thumbnailList.addThumbnailSelectionListener(e -> {
       if (!e.getValueIsAdjusting()) {
-        ImageIcon selected = (ImageIcon)imageList.getSelectedValue();
+        ImageFile selected = thumbnailList.getSelectedImageFile();
         if (selected != null) {
-          // mainViewを更新する処理
+          mainView.setIcon(selected.thumbnail());
         }
       }
     });
+    panel.add(thumbnailList.getThumbnailPane(), BorderLayout.LINE_START);
+
+    // JScrollPane thumbnailPane = ThumbnailList.createThumbnailListPanel("/Users/yu/git/java_labo/image_select_viewer_aid/src/main/resources");
+    // panel.add(thumbnailPane, BorderLayout.LINE_START);
+    // JList imageList = (JList)thumbnailPane.getViewport().getView();
+    // imageList.addListSelectionListener(e -> {
+    //   if (!e.getValueIsAdjusting()) {
+    //     ImageIcon selected = (ImageIcon)imageList.getSelectedValue();
+    //     if (selected != null) {
+    //       // mainViewを更新する処理
+    //     }
+    //   }
+    // });
 
     return frame;
   }

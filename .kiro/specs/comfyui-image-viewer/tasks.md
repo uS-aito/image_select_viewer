@@ -29,7 +29,7 @@
   - _Depends: 1.1_
 
 - [ ] 3. Core: ThumbnailList の ImageFile 対応改修
-- [ ] 3.1 サムネイルリストを `ImageFile` モデルで動作するよう変更する
+- [x] 3.1 サムネイルリストを `ImageFile` モデルで動作するよう変更する
   - `DefaultListModel<ImageIcon>` を `DefaultListModel<ImageFile>` に変更する
   - `JList<ImageIcon>` を `JList<ImageFile>` に変更する
   - カスタムセルレンダラーを追加して `imageFile.thumbnail()` をリストセルの `JLabel` に設定する
