@@ -8,7 +8,7 @@
   - _Requirements: 2.1, 2.4, 3.1, 5.1_
 
 - [ ] 2. Core: サービス層の実装
-- [ ] 2.1 (P) PNG プロンプトメタデータ読み取り機能を実装する
+- [x] 2.1 (P) PNG プロンプトメタデータ読み取り機能を実装する
   - Java 標準 ImageIO + IIOMetadata を使用して PNG の tEXt チャンクを走査する
   - `"prompt"` キーを持つ tEXtEntry ノードを見つけてその値を返す
   - `"prompt"` チャンクが存在しない場合は `Optional.empty()` を返す
