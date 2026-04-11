@@ -50,3 +50,6 @@ buildNumber.properties
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# Claude Code memory (optional - personal AI context)
+.claude/memory/
