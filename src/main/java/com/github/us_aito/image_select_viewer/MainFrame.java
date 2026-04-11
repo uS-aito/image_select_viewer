@@ -9,12 +9,21 @@ import javax.swing.JTextArea;
 import javax.swing.ImageIcon;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Image;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 
 public class MainFrame {
+
+  private static final int RIGHT_PANE_WIDTH = 250;
 
   public static JFrame createMainFrame(String title, String imagePath) {
     JFrame frame = new JFrame(title);
@@ -28,6 +37,7 @@ public class MainFrame {
 
     // 画像表示ラベルとスクロールペイン
     JLabel imageLabel = new JLabel();
+    imageLabel.setHorizontalAlignment(JLabel.CENTER);
     JScrollPane imageScrollPane = new JScrollPane(imageLabel);
 
     // 右ペイン（プロンプト表示用 JTextArea）
@@ -36,7 +46,7 @@ public class MainFrame {
     promptTextArea.setLineWrap(true);
     promptTextArea.setWrapStyleWord(true);
     JScrollPane promptScrollPane = new JScrollPane(promptTextArea);
-    promptScrollPane.setPreferredSize(new Dimension(250, 0));
+    promptScrollPane.setPreferredSize(new Dimension(RIGHT_PANE_WIDTH, 0));
     promptScrollPane.setVisible(false);
 
     // トグルボタン
@@ -59,8 +69,31 @@ public class MainFrame {
     // サムネイルリスト
     ThumbnailList thumbnailList = new ThumbnailList(imagePath);
 
-    // mutable reference for lambda
+    // 現在表示中の画像（スケーリング再計算のために保持）
+    BufferedImage[] currentImage = {null};
     ImageFile[] currentImageFile = {null};
+
+    // 画像をビューポートサイズに合わせてスケーリング表示
+    Runnable updateImageDisplay = () -> {
+      if (currentImage[0] == null) return;
+      int vpW = imageScrollPane.getViewport().getWidth();
+      int vpH = imageScrollPane.getViewport().getHeight();
+      if (vpW <= 0 || vpH <= 0) return;
+      BufferedImage img = currentImage[0];
+      double scale = Math.min((double) vpW / img.getWidth(), (double) vpH / img.getHeight());
+      int newW = (int) (img.getWidth() * scale);
+      int newH = (int) (img.getHeight() * scale);
+      Image scaled = img.getScaledInstance(newW, newH, Image.SCALE_SMOOTH);
+      imageLabel.setIcon(new ImageIcon(scaled));
+    };
+
+    // ウィンドウリサイズ時に画像を再スケーリング
+    imageScrollPane.addComponentListener(new ComponentAdapter() {
+      @Override
+      public void componentResized(ComponentEvent e) {
+        updateImageDisplay.run();
+      }
+    });
 
     // プロンプト読み込みヘルパー（右ペイン展開中のみ）
     Runnable loadPrompt = () -> {
@@ -69,17 +102,26 @@ public class MainFrame {
       if (current == null) return;
       try {
         Optional<String> prompt = PngMetadataReader.readPrompt(current.file());
-        promptTextArea.setText(prompt.orElse("\u30d7\u30ed\u30f3\u30d7\u30c8\u60c5\u5831\u304c\u3042\u308a\u307e\u305b\u3093"));
+        String displayText = prompt
+            .map(MainFrame::extractPromptTexts)
+            .orElse("\u30d7\u30ed\u30f3\u30d7\u30c8\u60c5\u5831\u304c\u3042\u308a\u307e\u305b\u3093");
+        promptTextArea.setText(displayText);
+        promptTextArea.setCaretPosition(0);
       } catch (IOException ex) {
         promptTextArea.setText("\u30a8\u30e9\u30fc: " + ex.getMessage());
       }
     };
 
-    // トグルボタンのアクションリスナー
+    // トグルボタンのアクションリスナー（右ペイン開閉時にウィンドウ幅を変更）
     toggleButton.addActionListener(e -> {
       boolean nowVisible = !promptScrollPane.isVisible();
       promptScrollPane.setVisible(nowVisible);
       toggleButton.setText(nowVisible ? "\u25C4" : "\u25B6");
+      if (nowVisible) {
+        frame.setSize(frame.getWidth() + RIGHT_PANE_WIDTH, frame.getHeight());
+      } else {
+        frame.setSize(frame.getWidth() - RIGHT_PANE_WIDTH, frame.getHeight());
+      }
       panel.revalidate();
       if (nowVisible) {
         loadPrompt.run();
@@ -95,7 +137,8 @@ public class MainFrame {
           try {
             BufferedImage fullImage = ImageIO.read(selected.file());
             if (fullImage != null) {
-              imageLabel.setIcon(new ImageIcon(fullImage));
+              currentImage[0] = fullImage;
+              updateImageDisplay.run();
             }
           } catch (IOException ex) {
             ex.printStackTrace();
@@ -108,5 +151,71 @@ public class MainFrame {
     panel.add(thumbnailList.getThumbnailPane(), BorderLayout.LINE_START);
 
     return frame;
+  }
+
+  /**
+   * ComfyUI の "prompt" tEXt チャンク値（API フォーマット JSON）から
+   * CLIPTextEncode ノードのテキスト入力を抽出して可読形式で返す。
+   * CLIPTextEncode が見つからない場合は元の文字列をそのまま返す。
+   */
+  private static String extractPromptTexts(String rawJson) {
+    if (rawJson == null || !rawJson.contains("\"CLIPTextEncode\"")) {
+      return rawJson;
+    }
+
+    // トップレベルのノードオブジェクトを抽出（ブレース深度トラッキング）
+    List<String> nodeBlocks = new ArrayList<>();
+    int depth = 0;
+    int nodeStart = -1;
+    boolean inString = false;
+    boolean escaped = false;
+
+    for (int i = 0; i < rawJson.length(); i++) {
+      char c = rawJson.charAt(i);
+      if (escaped) { escaped = false; continue; }
+      if (c == '\\' && inString) { escaped = true; continue; }
+      if (c == '"') { inString = !inString; continue; }
+      if (inString) continue;
+
+      if (c == '{') {
+        depth++;
+        if (depth == 2) nodeStart = i;
+      } else if (c == '}') {
+        if (depth == 2 && nodeStart >= 0) {
+          nodeBlocks.add(rawJson.substring(nodeStart, i + 1));
+          nodeStart = -1;
+        }
+        depth--;
+      }
+    }
+
+    // CLIPTextEncode ノードから "text" フィールドを抽出
+    Pattern textPattern = Pattern.compile("\"text\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+    List<String> texts = new ArrayList<>();
+    for (String block : nodeBlocks) {
+      if (block.contains("\"CLIPTextEncode\"")) {
+        Matcher m = textPattern.matcher(block);
+        if (m.find()) {
+          String text = m.group(1)
+              .replace("\\n", "\n")
+              .replace("\\t", "\t")
+              .replace("\\\"", "\"")
+              .replace("\\\\", "\\");
+          texts.add(text);
+        }
+      }
+    }
+
+    if (texts.isEmpty()) {
+      return rawJson;
+    }
+
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < texts.size(); i++) {
+      if (i > 0) sb.append("\n\n");
+      sb.append("--- ").append(i + 1).append(" ---\n");
+      sb.append(texts.get(i));
+    }
+    return sb.toString();
   }
 }

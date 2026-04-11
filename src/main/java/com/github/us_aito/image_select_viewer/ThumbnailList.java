@@ -29,6 +29,7 @@ public class ThumbnailList {
           boolean isSelected,
           boolean cellHasFocus) {
         JLabel label = new JLabel();
+        label.setHorizontalAlignment(JLabel.CENTER);
         if (value != null) {
           label.setIcon(value.thumbnail());
         }
