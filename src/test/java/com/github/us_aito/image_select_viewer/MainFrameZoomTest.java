@@ -9,6 +9,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// タスク 3.1 用インポート
+// (JComboBox は javax.swing.* に含まれるため追加不要)
+
 /**
  * ZoomToolbar パネルとフィットボタンの動作を検証するテスト（タスク 2.1）
  */
@@ -83,5 +86,50 @@ class MainFrameZoomTest {
         JButton fitButton = getFitButton(frame);
         assertNotNull(fitButton, "フィットボタンが存在すること");
         assertTrue(fitButton.isVisible(), "フィットボタンが可視であること");
+    }
+
+    // ─── タスク 3.1: 倍率プルダウン ──────────────────────────────────────────
+
+    /** コンテナ内の全 JComboBox をリストアップする */
+    @SuppressWarnings("unchecked")
+    private List<JComboBox<String>> findAllComboBoxes(Container container) {
+        List<JComboBox<String>> result = new ArrayList<>();
+        for (Component c : container.getComponents()) {
+            if (c instanceof JComboBox<?> cb) {
+                result.add((JComboBox<String>) cb);
+            }
+            if (c instanceof Container cont) {
+                result.addAll(findAllComboBoxes(cont));
+            }
+        }
+        return result;
+    }
+
+    @Test
+    void zoomDropdown_ZoomToolbarにJComboBoxが存在し12項目ある() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JComboBox<String>> combos = findAllComboBoxes((Container) frame.getContentPane());
+        assertFalse(combos.isEmpty(), "JComboBox が zoomToolbar に存在すること");
+        JComboBox<String> combo = combos.get(0);
+        assertEquals(12, combo.getItemCount(), "プルダウンは 12 項目（10%〜800%）であること");
+    }
+
+    @Test
+    void zoomDropdown_デフォルト選択が100パーセントである() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JComboBox<String>> combos = findAllComboBoxes((Container) frame.getContentPane());
+        assertFalse(combos.isEmpty(), "JComboBox が存在すること");
+        JComboBox<String> combo = combos.get(0);
+        assertEquals("100%", combo.getSelectedItem(), "デフォルト選択は '100%' であること");
+    }
+
+    @Test
+    void zoomDropdown_最初の項目が10パーセントで最後が800パーセント() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JComboBox<String>> combos = findAllComboBoxes((Container) frame.getContentPane());
+        assertFalse(combos.isEmpty(), "JComboBox が存在すること");
+        JComboBox<String> combo = combos.get(0);
+        assertEquals("10%", combo.getItemAt(0), "最初の項目は '10%' であること");
+        assertEquals("800%", combo.getItemAt(11), "最後の項目は '800%' であること");
     }
 }

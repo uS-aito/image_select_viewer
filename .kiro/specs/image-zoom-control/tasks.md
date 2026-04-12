@@ -20,8 +20,8 @@
   - _Boundary: MainFrame_
   - _Depends: 1.1_
 
-- [ ] 3. Core: 倍率プルダウンの実装
-- [ ] 3.1 倍率プルダウンを実装し、選択時に固定倍率で画像を表示する
+- [x] 3. Core: 倍率プルダウンの実装
+- [x] 3.1 倍率プルダウンを実装し、選択時に固定倍率で画像を表示する
   - `ZOOM_LEVELS` 配列を "10%", "25%", ... "800%" 形式の文字列配列に変換して `JComboBox<String>` を生成する
   - プルダウン選択時に `zoomFactor[0] = selectedPct / 100.0` を設定して `updateImageDisplay.run()` を呼び出す
   - デフォルト選択を 100% に設定する

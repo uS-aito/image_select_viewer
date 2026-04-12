@@ -1,6 +1,7 @@
 package com.github.us_aito.image_select_viewer;
 
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -22,6 +23,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -183,6 +185,23 @@ public class MainFrame {
       updateImageDisplay.run();
     });
     zoomToolbar.add(fitButton);
+
+    // 倍率プルダウン（タスク 3.1）
+    String[] zoomItems = Arrays.stream(ZOOM_LEVELS)
+        .mapToObj(l -> l + "%")
+        .toArray(String[]::new);
+    JComboBox<String> zoomComboBox = new JComboBox<>(zoomItems);
+    zoomComboBox.setSelectedIndex(4); // デフォルト: 100%
+    zoomComboBox.addActionListener(e -> {
+      String selected = (String) zoomComboBox.getSelectedItem();
+      if (selected != null) {
+        int pct = Integer.parseInt(selected.replace("%", ""));
+        zoomFactor[0] = pct / 100.0;
+        updateImageDisplay.run();
+      }
+    });
+    zoomToolbar.add(zoomComboBox);
+
     centerWrapper.add(zoomToolbar, BorderLayout.SOUTH);
 
     // ウィンドウリサイズ時に画像を再スケーリング
