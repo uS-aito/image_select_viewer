@@ -60,4 +60,10 @@ public class ThumbnailList {
   public void addThumbnailSelectionListener(ListSelectionListener listener) {
     this.imageList.addListSelectionListener(listener);
   }
+
+  /* package-private, for testing only */
+  void addImageFileForTest(ImageFile f) { model.addElement(f); }
+
+  /* package-private, for testing only */
+  void selectIndexForTest(int i) { imageList.setSelectedIndex(i); }
 }

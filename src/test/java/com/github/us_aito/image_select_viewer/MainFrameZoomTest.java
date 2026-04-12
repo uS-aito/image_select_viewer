@@ -1,5 +1,6 @@
 package com.github.us_aito.image_select_viewer;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.*;
@@ -423,5 +424,40 @@ class MainFrameZoomTest {
 
         assertEquals("300%", combo.getSelectedItem(),
             "スライダーを 300 に設定後、プルダウンは '300%'（最近接選択肢）に同期されること（要件 4.3）");
+    }
+
+    // ─── タスク 6.1: サムネイル選択時のフィット自動適用 ───────────────────────────
+
+    /** JComboBox を1つ取得するヘルパー */
+    private JComboBox<?> findComboBox(JFrame frame) {
+        List<JComboBox<String>> combos = findAllComboBoxes((Container) frame.getContentPane());
+        return combos.isEmpty() ? null : combos.get(0);
+    }
+
+    @Test
+    @DisplayName("autoFit: サムネイル選択時に zoomFactor が 0 にリセットされること（要件 2.3）")
+    void autoFit_サムネイル選択時にzoomFactorが0にリセットされること() throws Exception {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+
+        // 前提: コンボで 200% を選択して zoomFactor を 2.0 にする
+        JComboBox<?> combo = findComboBox(frame);
+        assertNotNull(combo, "JComboBox が存在すること");
+        combo.setSelectedItem("200%");
+        assertEquals(2.0, MainFrame.lastZoomFactor[0], 0.001, "前提: zoomFactor が 2.0 であること");
+
+        // テスト用 1×1 PNG を作成
+        java.io.File tempPng = java.io.File.createTempFile("autofit_test", ".png");
+        tempPng.deleteOnExit();
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        javax.imageio.ImageIO.write(img, "png", tempPng);
+
+        // サムネイルをモデルに追加して選択 → リスナーが発火
+        ImageFile imageFile = new ImageFile(tempPng, null);
+        MainFrame.lastThumbnailList.addImageFileForTest(imageFile);
+        MainFrame.lastThumbnailList.selectIndexForTest(0);
+
+        // 検証: リスナーが zoomFactor[0] = 0 を実行したこと
+        assertEquals(0.0, MainFrame.lastZoomFactor[0], 0.001,
+            "サムネイル選択後 zoomFactor が 0 にリセットされること（フィットモード）");
     }
 }

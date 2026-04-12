@@ -60,8 +60,8 @@
   - _Boundary: MainFrame_
   - _Depends: 5.1_
 
-- [ ] 6. Integration: 画像選択時のフィット自動適用
-- [ ] 6.1 サムネイル選択時に zoomFactor をリセットしてフィット表示を自動適用する
+- [x] 6. Integration: 画像選択時のフィット自動適用
+- [x] 6.1 サムネイル選択時に zoomFactor をリセットしてフィット表示を自動適用する
   - サムネイル選択リスナー内で `zoomFactor[0] = 0` に設定してからフルサイズ画像を読み込む
   - 画像読み込み後に `updateImageDisplay.run()` を呼び出し、その後 `syncControlsToCurrentScale()` を呼び出す
   - サムネイルを選択するたびに画像がフィット表示で表示され、プルダウン・スライダーもフィット倍率に更新されること

@@ -35,6 +35,11 @@ public class MainFrame {
 
   private static final int RIGHT_PANE_WIDTH = 250;
 
+  /* package-private, for testing only */
+  static double[] lastZoomFactor;
+  /* package-private, for testing only */
+  static ThumbnailList lastThumbnailList;
+
   // ズーム倍率: 0 = フィットモード、正値 = 固定倍率（例: 2.0 = 200%）
   static final int[] ZOOM_LEVELS = {10, 25, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800};
 
@@ -210,6 +215,7 @@ public class MainFrame {
 
     // サムネイルリスト（起動時はフォルダ未選択のため null を渡す）
     ThumbnailList thumbnailList = new ThumbnailList(null);
+    MainFrame.lastThumbnailList = thumbnailList;
 
     // Open Folder アクションリスナー（thumbnailList・imageLabel が宣言された後に登録）
     openFolderItem.addActionListener(e -> {
@@ -225,6 +231,7 @@ public class MainFrame {
 
     // ズーム倍率: 0 = フィットモード、正値 = 固定倍率（例: 2.0 = 200%）
     double[] zoomFactor = {0};
+    MainFrame.lastZoomFactor = zoomFactor;
 
     // 画像をビューポートサイズに合わせてスケーリング表示
     Runnable updateImageDisplay = () -> {
@@ -371,11 +378,17 @@ public class MainFrame {
         ImageFile selected = thumbnailList.getSelectedImageFile();
         if (selected != null) {
           currentImageFile[0] = selected;
+          // タスク 6.1: 新規選択時にフィットモードをリセット（要件 2.3）
+          zoomFactor[0] = 0;
           try {
             BufferedImage fullImage = ImageIO.read(selected.file());
             if (fullImage != null) {
               currentImage[0] = fullImage;
               updateImageDisplay.run();
+              // タスク 6.1: フィット倍率をコントロールに同期（要件 2.3）
+              syncing[0] = true;
+              syncControlsToCurrentScale(zoomComboBox, zoomSlider, zoomFactor, currentImage, imageScrollPane);
+              syncing[0] = false;
             }
           } catch (IOException ex) {
             ex.printStackTrace();
