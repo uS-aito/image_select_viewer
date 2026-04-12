@@ -1,7 +1,7 @@
 {
-  "feature_name": "comfyui-image-viewer",
-  "created_at": "2026-04-11T00:00:00+09:00",
-  "updated_at": "2026-04-12T02:00:00+09:00",
+  "feature_name": "image-zoom-control",
+  "created_at": "2026-04-12T00:00:00+09:00",
+  "updated_at": "2026-04-12T05:00:00+09:00",
   "language": "ja",
   "phase": "tasks-generated",
   "approvals": {
@@ -18,5 +18,5 @@
       "approved": true
     }
   },
-  "ready_for_implementation": true
+  "ready_for_implementation": false
 }

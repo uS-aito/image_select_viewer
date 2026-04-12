@@ -1,445 +1,287 @@
-# Design Document: comfyui-image-viewer
+# Design Document
 
 ## Overview
 
-ComfyUI 生成画像ビューワーは、ComfyUI で生成した PNG 画像を閲覧・管理するための Java Swing デスクトップアプリケーション。起動時のフォルダ選択から、左ペインのサムネイル一覧、中央ペインのフルサイズ表示、右ペインの折りたたみ可能プロンプト表示までを単一ウィンドウで提供する。
+本フィーチャーは、ComfyUI Image Viewer の起動UXとフォルダ選択フローを刷新する。現行実装では起動時に必ずフォルダ選択ダイアログが表示されアプリを強制的に操作させるが、本変更後はアプリが空状態で起動し、ユーザーが任意のタイミングでメニューバーの `File > Open Folder` からフォルダを選択できるようになる。
 
-**Purpose**: ComfyUI ユーザーが生成画像とプロンプトを同時に確認できる専用ビューワーを提供する。
-**Users**: ComfyUI で画像を生成するユーザーが、生成物のレビューと評価のために使用する。
-**Impact**: 既存の基本的なサムネイル表示実装を、フォルダ選択・フルサイズ表示・プロンプト確認を備えた完全なビューワーに拡張する。
+対象ユーザーは ComfyUI で生成した PNG 画像を確認したい利用者。既存の `MainFrame`・`ThumbnailList`・`Main` クラスへの最小限の変更で実現し、画像表示・右ペイン・メタデータ表示など他の機能は無変更で維持する。
 
 ### Goals
-- 起動時フォルダ選択により任意のフォルダを対象にできる
-- PNG サムネイル一覧から選択した画像をフルサイズで表示できる
-- 右ペインでプロンプトメタデータを確認できる（折りたたみ可能）
+- 起動時フォルダ選択ダイアログの廃止と空状態表示の実現
+- OS標準フォルダ選択ダイアログを持つ `File > Open Folder` メニューの追加
+- フォルダの繰り返し切り替えのサポート（既存サムネイルのクリアと再読み込み）
 
 ### Non-Goals
-- ズーム・回転などの画像操作
-- `workflow` メタデータの表示
-- PNG 以外の画像フォーマット対応
-- ファイル操作（削除・移動・リネーム）
-
----
+- ズーム・回転などの画像操作（`image-zoom-control` スペックが担当）
+- フォルダ履歴やお気に入りフォルダの保持
+- キーボードショートカット（Cmd+O / Ctrl+O）によるフォルダ選択
 
 ## Boundary Commitments
 
 ### This Spec Owns
-- フォルダ選択ダイアログの起動フロー
-- PNG サムネイルリスト（左ペイン）の表示と選択
-- フルサイズ PNG 画像の表示（中央ペイン）
-- PNG `prompt` メタデータの読み取りと右ペインへの表示
-- 右ペインの折りたたみ/展開制御
+- アプリ起動フロー（空状態表示への変更）
+- `JMenuBar` の生成と `File > Open Folder` アクション
+- OS判定によるネイティブフォルダ選択ダイアログの表示
+- フォルダ選択後のサムネイルリスト読み込みトリガー
+- フォルダ切り替え時の現在画像クリア
 
 ### Out of Boundary
-- ズーム・回転などの画像変換処理
-- `workflow` メタデータの解析・表示
-- PNG 以外のフォーマット対応
-- ファイル操作（OS ファイルシステム操作）
+- サムネイル描画・スクロール（`ThumbnailList` / `ImageLoader` の既存ロジック）
+- フルサイズ画像描画（`MainFrame` の既存 `updateImageDisplay()` ロジック）
+- 右ペイン折りたたみ・プロンプトメタデータ表示
+- ズームコントロール（`image-zoom-control` スペック担当）
 
 ### Allowed Dependencies
-- Java 21 標準ライブラリ（`javax.swing`, `javax.imageio`, `java.io`, `java.util`）
-- 既存クラス: `Main`, `MainFrame`, `ThumbnailList`, `ImageLoader`
+- Java AWT: `java.awt.FileDialog`（macOS ネイティブダイアログ）
+- Java Swing: `JFileChooser`（非macOS フォルダ選択）
+- 既存クラス: `ThumbnailList`、`ImageLoader`、`MainFrame`
 
 ### Revalidation Triggers
-- `ImageFile` のフィールド変更（`file` / `thumbnail`）
-- PNG メタデータキー名の変更（現在 `"prompt"`）
-- アプリケーションのエントリポイント変更（`Main.java`）
-
----
+- `ThumbnailList` の公開インターフェース変更（特に `loadFolder()` シグネチャ変更）
+- `MainFrame.createMainFrame()` の引数変更
+- `image-zoom-control` スペックが中央ペインのレイアウトを変更する場合、本スペックの clearCurrentImage 処理との競合を確認すること
 
 ## Architecture
 
 ### Existing Architecture Analysis
 
-既存実装の構成:
-- `Main.java` — エントリポイント。フォルダパスなし、`MainFrame.createMainFrame("Image Select Viewer")` を直接呼び出し
-- `MainFrame.java` — `BorderLayout` で左ペイン（サムネイル）+ 中央ペイン（画像表示）を構成。フォルダパスはハードコード
-- `ThumbnailList.java` — `DefaultListModel<ImageIcon>` + `JList<ImageIcon>` でサムネイル管理。ファイル参照を持たない
-- `ImageLoader.java` — `SwingWorker<Void, ImageIcon>` で非同期サムネイル読み込み（100×100px）
+現行フロー（変更前）:
+1. `Main.main()` が `JFileChooser` を表示
+2. フォルダ確定 → `MainFrame.createMainFrame(title, path)` を呼び出し
+3. キャンセル → `System.exit(0)`
 
-変更が必要な問題点:
-1. フォルダパスがハードコード → `JFileChooser` で起動時選択に変更
-2. `ThumbnailList` が `ImageIcon` のみ保持（ファイル参照なし）→ `ImageFile` モデルに変更
-3. 中央ペインがサムネイルアイコンをそのまま表示 → フルサイズ読み込みに変更
-4. 右ペインなし → 新規追加
+変更後フロー:
+1. `Main.main()` が直接 `MainFrame.createMainFrame(title)` を呼び出し（パスなし）
+2. `MainFrame` は空状態で表示（`ThumbnailList` は空、中央ペインは空白）
+3. ユーザーが `File > Open Folder` を選択 → `openFolderDialog()` が OS 標準ダイアログを表示
+4. 確定 → `loadImagesFromFolder(path)` を呼び出し
+5. キャンセル → 現在の状態を維持
 
 ### Architecture Pattern & Boundary Map
 
-レイヤー構成: **Domain Model → Service → UI**（依存方向は左から右。逆方向禁止）
-
 ```mermaid
 graph TB
-    subgraph UI
-        Main
-        MainFrame
-        ThumbnailList
-        ImageLabel[imageLabel JLabel]
-        ToggleButton[toggleButton JButton]
-        PromptArea[promptTextArea JTextArea]
-    end
-    subgraph Service
-        ImageLoader
-        PngMetadataReader
-    end
-    subgraph Domain
-        ImageFile
-    end
-
     Main --> MainFrame
-    MainFrame --> ThumbnailList
-    MainFrame --> ImageLabel
-    MainFrame --> ToggleButton
-    MainFrame --> PromptArea
-    MainFrame --> PngMetadataReader
+    MainFrame --> MenuBar
+    MenuBar --> OpenFolderAction
+    OpenFolderAction --> FolderDialogHelper
+    FolderDialogHelper --> FileDialogMac
+    FolderDialogHelper --> JFileChooserOther
+    OpenFolderAction --> LoadFolderMethod
+    LoadFolderMethod --> ThumbnailList
     ThumbnailList --> ImageLoader
-    ImageLoader --> ImageFile
-    ThumbnailList -.exposes selected.-> ImageFile
-    PngMetadataReader -.reads file from.-> ImageFile
+    ImageLoader --> FileSystem
 ```
+
+- `OpenFolderAction`: `File > Open Folder` の ActionListener（MainFrame のインナーロジック）
+- `FolderDialogHelper`: private メソッド `openFolderDialog()` — OS判定とダイアログ表示
+- `LoadFolderMethod`: private メソッド `loadImagesFromFolder(String path)` — ThumbnailList のリフレッシュと画像クリア
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role | Notes |
-|-------|-----------------|------|-------|
-| UI | Java Swing (JDK 21) | ウィンドウ・パネル・リスト・テキスト表示 | 既存スタック継続 |
-| Image I/O | `javax.imageio.ImageIO` (JDK 21) | PNG 読み込み・メタデータ解析 | 追加ライブラリ不要 |
-| Async | `javax.swing.SwingWorker` (JDK 21) | バックグラウンド画像読み込み | 既存パターン継続 |
-
----
+| Layer | Choice | Role | Notes |
+|-------|--------|------|-------|
+| UI Framework | Java Swing (JMenuBar) | メニューバー追加 | 既存スタックと同一 |
+| OS Dialog (macOS) | java.awt.FileDialog | ネイティブ Finder ダイアログ | `apple.awt.fileDialogForDirectories=true` 設定が必要 |
+| OS Dialog (他OS) | JFileChooser (DIRECTORIES_ONLY) | OS標準に近いフォルダ選択 | 既存スタックと同一 |
 
 ## File Structure Plan
 
 ### Directory Structure
-
 ```
 src/main/java/com/github/us_aito/image_select_viewer/
-├── Main.java                  # エントリポイント（フォルダ選択ダイアログ追加）
-├── MainFrame.java             # メインウィンドウ（右ペイン・トグルボタン追加）
-├── ImageFile.java             # [新規] ファイル参照 + サムネイルを保持するドメインモデル
-├── ThumbnailList.java         # サムネイルリスト（ImageFile モデルに変更）
-├── ImageLoader.java           # 非同期読み込み（ImageFile を publish するよう変更）
-└── PngMetadataReader.java     # [新規] PNG tEXt チャンク読み取りユーティリティ
+├── Main.java          — 変更: JFileChooser の削除、空状態でのMainFrame起動
+├── MainFrame.java     — 変更: JMenuBar追加、openFolderDialog()、loadImagesFromFolder()
+└── ThumbnailList.java — 変更: loadFolder(String) メソッドの追加、初期 null パス対応
 ```
 
 ### Modified Files
-- `Main.java` — `JFileChooser` でフォルダ選択し、パスを `MainFrame.createMainFrame` に渡す
-- `MainFrame.java` — 右ペイン（`JScrollPane` + `JTextArea`）とトグルボタンを追加、フルサイズ画像表示を実装、`createMainFrame` の引数に `imagePath` を追加
-- `ThumbnailList.java` — モデルを `DefaultListModel<ImageFile>` に変更、セルレンダラー追加、選択値を `ImageFile` で返す
-- `ImageLoader.java` — `SwingWorker<Void, ImageFile>` に変更、`ImageFile` を `publish` するよう変更
-
----
+- `src/main/java/com/github/us_aito/image_select_viewer/Main.java` — `JFileChooser` の起動ロジックを削除し、`createMainFrame` をパスなしで呼び出す
+- `src/main/java/com/github/us_aito/image_select_viewer/MainFrame.java` — `JMenuBar` 生成、`openFolderDialog()` private メソッド、`loadImagesFromFolder(String)` メソッドを追加
+- `src/main/java/com/github/us_aito/image_select_viewer/ThumbnailList.java` — `loadFolder(String path)` メソッドを追加、コンストラクタが null パスを受け入れるよう変更
 
 ## System Flows
 
-### 起動フロー
-
 ```mermaid
 sequenceDiagram
     participant User
-    participant Main
-    participant FileChooser as JFileChooser
     participant MainFrame
-
-    User->>Main: アプリ起動
-    Main->>FileChooser: showOpenDialog()
-    FileChooser->>User: フォルダ選択ダイアログ表示
-    User->>FileChooser: フォルダ選択・確定
-    FileChooser->>Main: 選択パス返却
-    Main->>MainFrame: createMainFrame(title, selectedPath)
-    MainFrame->>MainFrame: UI 構築・ImageLoader 起動
-```
-
-### 画像選択フロー
-
-```mermaid
-sequenceDiagram
-    participant User
+    participant openFolderDialog
     participant ThumbnailList
-    participant MainFrame
-    participant PngMetadataReader
+    participant ImageLoader
 
-    User->>ThumbnailList: サムネイルクリック
-    ThumbnailList->>MainFrame: onImageSelected(ImageFile)
-    MainFrame->>MainFrame: ImageIO.read(imageFile.file()) でフルサイズ読み込み
-    MainFrame->>MainFrame: imageLabel.setIcon(fullSizeIcon)
-    alt 右ペインが展開中
-        MainFrame->>PngMetadataReader: readPrompt(imageFile.file())
-        PngMetadataReader-->>MainFrame: Optional<String> 返却
-        MainFrame->>MainFrame: promptTextArea.setText(prompt または メッセージ)
+    Note over MainFrame: アプリ起動（空状態）
+    User->>MainFrame: File > Open Folder クリック
+    MainFrame->>openFolderDialog: openFolderDialog()
+    alt macOS
+        openFolderDialog->>openFolderDialog: FileDialog apple native
+    else その他 OS
+        openFolderDialog->>openFolderDialog: JFileChooser DIRECTORIES_ONLY
+    end
+    alt フォルダ確定
+        openFolderDialog-->>MainFrame: folderPath (非null)
+        MainFrame->>ThumbnailList: loadFolder(folderPath)
+        ThumbnailList->>ThumbnailList: model.clear()
+        ThumbnailList->>ImageLoader: new ImageLoader execute
+        ImageLoader-->>ThumbnailList: publish ImageFile x PNG数
+        MainFrame->>MainFrame: clearCurrentImage
+    else キャンセル
+        openFolderDialog-->>MainFrame: null
+        Note over MainFrame: 現在の表示状態を維持
     end
 ```
-
-### 右ペイン切り替えフロー
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant ToggleButton
-    participant MainFrame
-
-    User->>ToggleButton: クリック
-    alt 右ペインが閉じている
-        MainFrame->>MainFrame: promptScrollPane.setVisible(true)
-        MainFrame->>MainFrame: revalidate()
-        MainFrame->>ToggleButton: setText("◀")
-        alt 画像が選択中
-            MainFrame->>MainFrame: loadAndDisplayPrompt(currentImageFile)
-        end
-    else 右ペインが開いている
-        MainFrame->>MainFrame: promptScrollPane.setVisible(false)
-        MainFrame->>MainFrame: revalidate()
-        MainFrame->>ToggleButton: setText("▶")
-    end
-```
-
----
 
 ## Requirements Traceability
 
-| 要件 | 概要 | コンポーネント | インターフェース |
-|------|------|--------------|----------------|
-| 1.1 | 起動時ダイアログ表示 | `Main` | `main(String[])` |
-| 1.2 | フォルダ確定後 PNG 読み込み | `Main`, `ThumbnailList`, `ImageLoader` | `createMainFrame(String, String)` |
-| 1.3 | キャンセル時終了 | `Main` | `main(String[])` |
-| 1.4 | ディレクトリのみ選択可 | `Main` (JFileChooser) | `setFileSelectionMode(DIRECTORIES_ONLY)` |
-| 2.1 | PNG のみ左ペインに表示 | `ImageLoader` | `doInBackground()` |
-| 2.2 | バックグラウンド非同期読み込み | `ImageLoader` (SwingWorker) | `publish(ImageFile)`, `process(List<ImageFile>)` |
-| 2.3 | PNG 以外を除外 | `ImageLoader` | `doInBackground()` |
-| 2.4 | サムネイル選択で中央ペイン更新 | `ThumbnailList`, `MainFrame` | `addThumbnailSelectionListener` |
-| 3.1 | フルサイズ表示 | `MainFrame` | `onImageSelected(ImageFile)` |
-| 3.2 | スクロールバー表示 | `MainFrame` (JScrollPane) | — |
-| 3.3 | 起動直後空白 | `MainFrame` | UI 初期化 |
-| 4.1 | トグルボタン常時表示 | `MainFrame` | UI 構築 |
-| 4.2 | 右ペイン展開 | `MainFrame` | `togglePromptPane()` |
-| 4.3 | 右ペイン折りたたみ | `MainFrame` | `togglePromptPane()` |
-| 4.4 | 起動時折りたたみ状態 | `MainFrame` | UI 初期化 |
-| 5.1 | prompt メタデータ表示 | `PngMetadataReader`, `MainFrame` | `readPrompt(File)` |
-| 5.2 | メタデータなし時メッセージ | `PngMetadataReader`, `MainFrame` | `readPrompt(File)` |
-| 5.3 | 折りたたみ中は非表示維持 | `MainFrame` | `onImageSelected(ImageFile)` |
-| 5.4 | スクロール可能テキスト表示 | `MainFrame` (JScrollPane + JTextArea) | — |
-
----
+| Requirement | Summary | Components | 実現方法 |
+|---|---|---|---|
+| 1.1 | 起動時ダイアログなし | Main.java | JFileChooser を削除し空状態で MainFrame を起動 |
+| 1.2 | 起動時サムネイル空 | ThumbnailList | null パスを受け取り ImageLoader を起動しない |
+| 1.3 | 起動時中央ペイン空白 | MainFrame | 既存の空表示ロジックを維持（画像未選択時） |
+| 2.1 | File > Open Folder メニュー | MainFrame (JMenuBar) | JMenuBar + JMenu File + JMenuItem Open Folder |
+| 2.2 | OS標準ダイアログ | openFolderDialog() | macOS: FileDialog / 他OS: JFileChooser |
+| 2.3 | ディレクトリのみ選択 | openFolderDialog() | FileDialog の System property / JFileChooser.DIRECTORIES_ONLY |
+| 2.4 | PNG読み込み | loadImagesFromFolder() | ThumbnailList.loadFolder() 経由で既存 ImageLoader を再利用 |
+| 2.5 | キャンセル時状態維持 | openFolderDialog() | null 返却時は loadImagesFromFolder() を呼ばない |
+| 2.6 | フォルダ切り替え時クリア | ThumbnailList.loadFolder() | model.clear() 後に新 ImageLoader 実行 |
+| 3.1〜3.4 | サムネイルリスト | ThumbnailList / ImageLoader | 既存ロジック変更なし |
+| 4.1〜4.3 | フルサイズ画像表示 | MainFrame | 既存ロジック変更なし |
+| 5.1〜5.4 | 右ペイン折りたたみ | MainFrame | 既存ロジック変更なし |
+| 6.1〜6.4 | PNGメタデータ表示 | MainFrame / PngMetadataReader | 既存ロジック変更なし |
 
 ## Components and Interfaces
 
 ### コンポーネントサマリー
 
-| コンポーネント | レイヤー | 責務 | 要件 | 主要依存 |
+| Component | Layer | Intent | Req Coverage | 変更種別 |
 |---|---|---|---|---|
-| `ImageFile` | Domain | ファイル参照とサムネイルを保持するイミュータブルモデル | 2.1, 2.4, 3.1, 5.1 | なし |
-| `ImageLoader` | Service | バックグラウンドで PNG を読み込み ImageFile を生成 | 2.1, 2.2, 2.3 | `ImageFile` |
-| `PngMetadataReader` | Service | PNG tEXt チャンクから prompt を抽出 | 5.1, 5.2 | Java ImageIO |
-| `ThumbnailList` | UI | サムネイルリストの表示と選択イベント通知 | 2.1, 2.2, 2.4 | `ImageLoader`, `ImageFile` |
-| `MainFrame` | UI | メインウィンドウ全体の組み立てと状態管理 | 1.2, 3.1–3.3, 4.1–4.4, 5.1–5.4 | 全コンポーネント |
-| `Main` | UI | 起動エントリポイント・フォルダ選択ダイアログ | 1.1, 1.3, 1.4 | `MainFrame` |
+| Main | エントリーポイント | アプリ起動フロー制御 | 1.1 | 変更 |
+| MainFrame | UIフレーム | メニューバー・フォルダ選択・読み込みトリガー | 1.2, 1.3, 2.1〜2.6 | 変更 |
+| ThumbnailList | UIコンポーネント | サムネイル表示・動的フォルダ読み込み対応 | 1.2, 2.4, 2.6 | 変更 |
 
----
+### エントリーポイント層
 
-### Domain
-
-#### ImageFile
+#### Main
 
 | Field | Detail |
 |-------|--------|
-| Intent | PNG ファイルへの参照とサムネイル ImageIcon を保持するイミュータブルモデル |
-| Requirements | 2.1, 2.4, 3.1, 5.1 |
+| Intent | JFileChooser を削除し、空状態で MainFrame を起動する |
+| Requirements | 1.1 |
 
-**Responsibilities & Constraints**
-- `file`: `java.io.File` — PNG ファイルへの参照（フルサイズ読み込み・メタデータ読み取りに使用）
-- `thumbnail`: `ImageIcon` — リスト表示用サムネイル（100×100px）
-- Java record として実装（イミュータブル）
-
-**Contracts**: State [x]
-
-```java
-public record ImageFile(File file, ImageIcon thumbnail) {}
-```
-
----
-
-### Service
-
-#### ImageLoader
-
-| Field | Detail |
-|-------|--------|
-| Intent | PNG ファイルを非同期でスキャンし、サムネイル付き ImageFile を生成してモデルに追加する |
-| Requirements | 2.1, 2.2, 2.3 |
-
-**Responsibilities & Constraints**
-- `SwingWorker<Void, ImageFile>` として動作
-- フォルダ内ファイルを走査し、`ImageIO.read` が null を返さないファイル（実質 PNG）のみ処理
-- サムネイルは 100×100px にスケール
-- `process()` で EDT 上の `DefaultListModel<ImageFile>` に追加
+**変更内容**
+- `JFileChooser` の生成・表示・パス取得を削除
+- `MainFrame.createMainFrame(title)` を直接呼び出す（パス引数なし）
+- `System.exit(0)` のキャンセル処理を削除
 
 **Contracts**: Service [x]
 
+##### Service Interface
 ```java
-public class ImageLoader extends SwingWorker<Void, ImageFile> {
-    public ImageLoader(String imagePath, DefaultListModel<ImageFile> model);
-    @Override protected Void doInBackground();
-    @Override protected void process(List<ImageFile> chunks);
+// 変更前
+public static void main(String[] args) {
+    // JFileChooser でフォルダ選択後に MainFrame を起動
+}
+
+// 変更後
+public static void main(String[] args) {
+    SwingUtilities.invokeLater(() -> MainFrame.createMainFrame(title));
 }
 ```
 
-**Implementation Notes**
-- 型変更のみ（ロジック変更なし）: `ImageIcon` → `ImageFile`
-- `doInBackground()` 内: `new ImageFile(imageFileList[i], new ImageIcon(scaledImage))` で生成
+---
 
-#### PngMetadataReader
+### UIフレーム層
+
+#### MainFrame
 
 | Field | Detail |
 |-------|--------|
-| Intent | PNG ファイルの tEXt メタデータチャンクから `prompt` キーの値を抽出するユーティリティ |
-| Requirements | 5.1, 5.2 |
+| Intent | JMenuBar 追加、OS 標準ダイアログによるフォルダ選択、サムネイルリフレッシュのトリガー |
+| Requirements | 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6 |
 
 **Responsibilities & Constraints**
-- ステートレスなユーティリティクラス（静的メソッドのみ）
-- Java 標準の `ImageIO` + `IIOMetadata` を使用
-- `prompt` キーが存在しない場合は `Optional.empty()` を返す（例外をスローしない）
-- I/O エラーは `IOException` としてスロー
+- `JMenuBar` に `File > Open Folder` メニューを追加する
+- `openFolderDialog()` は OS を検出して適切なダイアログを表示し、選択パスまたは null を返す
+- `loadImagesFromFolder(String path)` は `ThumbnailList.loadFolder()` を呼び出し、現在画像をクリアする
+- EDT 上で実行されることを前提とする（SwingWorker はすでに ThumbnailList/ImageLoader が担当）
+
+**Dependencies**
+- Outbound: `ThumbnailList.loadFolder(String)` — フォルダ変更通知 (P0)
+- External: `java.awt.FileDialog` — macOS ネイティブダイアログ (P1)
+- External: `JFileChooser` — 非macOS フォルダ選択 (P1)
 
 **Contracts**: Service [x]
 
-```java
-public class PngMetadataReader {
-    /**
-     * PNG ファイルの tEXt チャンクから "prompt" キーの値を返す。
-     * @param file 対象 PNG ファイル
-     * @return prompt の値。存在しない場合は Optional.empty()
-     * @throws IOException ファイル読み取り失敗時
-     */
-    public static Optional<String> readPrompt(File file) throws IOException;
-}
-```
-
-- Preconditions: `file` は存在する PNG ファイル
-- Postconditions: `prompt` tEXt チャンクが存在すれば非 empty の `Optional` を返す
-
-**Implementation Notes**
-- `ImageIO.createImageInputStream(file)` + `ImageIO.getImageReadersByFormatName("png")`
-- `reader.getImageMetadata(0).getAsTree("javax_imageio_png_1.0")` で DOM 取得
-- `tEXtEntry` ノードを走査し、`keyword` 属性が `"prompt"` のものの `value` 属性を返す
-- リソースリーク防止: `ImageInputStream` と `ImageReader` を try-finally で close
-
----
-
-### UI
-
-#### ThumbnailList（変更）
-
-| Field | Detail |
-|-------|--------|
-| Intent | PNG サムネイルを一覧表示し、選択イベントを MainFrame に通知する |
-| Requirements | 2.1, 2.2, 2.4 |
-
-**変更箇所:**
-- `DefaultListModel<ImageIcon>` → `DefaultListModel<ImageFile>`
-- `JList<ImageIcon>` → `JList<ImageFile>`
-- セルレンダラー追加（`imageFile.thumbnail()` を `JLabel` に設定する匿名クラス）
-- `getSelectedIcon()` → `getSelectedImageFile(): ImageFile`
+##### Service Interface
 
 ```java
-public class ThumbnailList {
-    public ThumbnailList(String imagePath);
-    public JScrollPane getThumbnailPane();
-    public ImageFile getSelectedImageFile();
-    public void addThumbnailSelectionListener(ListSelectionListener listener);
-}
-```
+// 既存シグネチャ変更 (imagePath 引数を削除)
+public static JFrame createMainFrame(String title);
 
-#### MainFrame（変更）
+// 新規追加: private メソッド
+// macOS: System.setProperty("apple.awt.fileDialogForDirectories", "true") + FileDialog
+// 他OS: new JFileChooser(); chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY)
+// 選択確定: 選択パス文字列を返す / キャンセル: null を返す
+private String openFolderDialog(JFrame parentFrame);
 
-| Field | Detail |
-|-------|--------|
-| Intent | メインウィンドウを組み立て、コンポーネント間のインタラクションを調整する |
-| Requirements | 1.2, 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 4.4, 5.1, 5.2, 5.3, 5.4 |
-
-**レイアウト構成:**
-
-```
-mainPanel (BorderLayout)
-├── LINE_START: thumbnailList.getThumbnailPane() [幅 200px]
-├── CENTER: centerWrapper (BorderLayout)
-│   ├── CENTER: imageScrollPane (JScrollPane wrapping imageLabel)
-│   └── LINE_END: togglePanel (幅 20px、JButton ▶/◀)
-└── LINE_END: promptScrollPane (JScrollPane wrapping promptTextArea、初期 visible=false)
-```
-
-**右ペイン開閉ロジック:**
-- `promptScrollPane.setVisible(true/false)` + `mainPanel.revalidate()` で表示切り替え
-- BorderLayout は `isVisible() == false` のコンポーネントをレイアウトから除外するため、表示領域が正しく解放される
-
-**インターフェース変更:**
-
-```java
-public class MainFrame {
-    // imagePath 引数を追加
-    public static JFrame createMainFrame(String title, String imagePath);
-}
+// 新規追加: private メソッド
+// thumbnailList.loadFolder(folderPath) を呼び出す
+// imageLabel.setIcon(null) で現在画像をクリアする
+private void loadImagesFromFolder(String folderPath);
 ```
 
 **Implementation Notes**
-- フルサイズ読み込み: `ImageIO.read(imageFile.file())` → `new ImageIcon(bufferedImage)` → `imageLabel.setIcon(icon)`
-- 起動状態: `promptScrollPane.setVisible(false)`、ボタンラベル `"▶"`
-- 右ペイン展開時に画像が選択されていれば `PngMetadataReader.readPrompt()` を呼び出してテキストを更新
-- メタデータ読み取りの `IOException` は catch してプロンプトエリアにエラーメッセージを表示
+- OS 判定は `System.getProperty("os.name").toLowerCase().contains("mac")` で行う
+- `openFolderDialog()` が null を返した場合は `loadImagesFromFolder()` を呼ばない
+- 旧 `SwingWorker` が完了前に新しい読み込みが始まっても `model.clear()` 後は旧エントリーが UI に残らないため許容範囲内
 
-#### Main（変更）
+---
+
+#### ThumbnailList
 
 | Field | Detail |
 |-------|--------|
-| Intent | アプリ起動時にフォルダ選択ダイアログを表示し、選択パスを MainFrame に渡す |
-| Requirements | 1.1, 1.3, 1.4 |
+| Intent | 動的フォルダ切り替えに対応するため `loadFolder(String)` メソッドを追加する |
+| Requirements | 1.2, 2.4, 2.6 |
 
+**変更内容**
+- コンストラクタが `imagePath == null` の場合は `ImageLoader` を起動しない
+- `loadFolder(String path)` メソッドを追加: `model.clear()` 後に新しい `ImageLoader(model, path).execute()` を実行する
+
+**Contracts**: Service [x]
+
+##### Service Interface
 ```java
-public class Main {
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            int result = chooser.showOpenDialog(null);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                String path = chooser.getSelectedFile().getAbsolutePath();
-                JFrame frame = MainFrame.createMainFrame("ComfyUI Image Viewer", path);
-                frame.setVisible(true);
-            } else {
-                System.exit(0);
-            }
-        });
-    }
-}
+// 変更: コンストラクタで null を許容（ImageLoader を起動しない）
+public ThumbnailList(String imagePath);
+
+// 新規追加
+// model.clear() を呼び出す
+// new ImageLoader(model, folderPath).execute() を呼び出す
+public void loadFolder(String folderPath);
 ```
 
----
+- Preconditions: `folderPath` は非 null かつ有効なディレクトリパス（MainFrame 側で確認済み）
+- Postconditions: `model` がクリアされ、新 `ImageLoader` が非同期で PNG を追加し始める
 
 ## Error Handling
 
 ### Error Strategy
 
-| エラーケース | 対応方針 | 要件 |
+| エラーケース | 発生箇所 | 対処方法 |
 |---|---|---|
-| フォルダ選択キャンセル | `System.exit(0)` でアプリ終了 | 1.3 |
-| PNG 以外のファイル | `ImageIO.read` が null → スキップ（リストに非追加） | 2.3 |
-| PNG メタデータなし | `Optional.empty()` → 右ペインに「プロンプト情報がありません」表示 | 5.2 |
-| PNG メタデータ読み取り IOException | catch → 右ペインにエラーメッセージ表示 | 5.2 |
-| フルサイズ画像読み込みエラー | catch → 中央ペインを空白のまま維持、stderr にログ出力 | — |
+| ダイアログキャンセル | `openFolderDialog()` | null を返す。呼び出し元でガード |
+| 無効なフォルダパス | `ImageLoader.doInBackground()` | 既存の null チェックで空リストを返す |
+| ファイルアクセス権限エラー | `ImageLoader` | 既存の例外ハンドリングで該当ファイルをスキップ |
 
----
+ユーザー向けエラーダイアログは現行の方針（エラー時はそのファイルをスキップ）を維持する。
 
 ## Testing Strategy
 
-### ユニットテスト
-1. `PngMetadataReader.readPrompt()` — `prompt` tEXt チャンクを持つ PNG でその値が返ること
-2. `PngMetadataReader.readPrompt()` — `prompt` チャンクを持たない PNG で `Optional.empty()` が返ること
-3. `ImageLoader` — PNG 以外のファイルが `DefaultListModel<ImageFile>` に追加されないこと
-
-### 統合テスト
-1. サムネイル選択 → 中央ペインにフルサイズ画像が表示されること
-2. サムネイル選択 + 右ペイン展開 → プロンプトテキストが表示されること
-3. `prompt` メタデータなし画像を選択 → 右ペインに「プロンプト情報がありません」が表示されること
-
-### UI 動作確認
-1. 起動時にフォルダ選択ダイアログが表示されること
-2. キャンセル時にアプリが終了すること
-3. トグルボタンで右ペインが開閉し、ボタンラベルが `▶` / `◀` に切り替わること
+### 手動統合テスト
+- 起動時にフォルダ選択ダイアログが表示されないことを確認（1.1）
+- `File > Open Folder` でフォルダを選択後、サムネイルが表示されること（2.4）
+- ダイアログキャンセル時に現在の表示状態が維持されること（2.5）
+- 別フォルダを選択した際にサムネイルがクリアされ再読み込みされること（2.6）
+- macOS でネイティブ Finder ダイアログが表示されること（2.2）
+- 起動直後は中央ペインが空白であること（1.3）
