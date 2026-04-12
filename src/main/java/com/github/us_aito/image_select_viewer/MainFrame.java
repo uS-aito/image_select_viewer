@@ -1,6 +1,7 @@
 package com.github.us_aito.image_select_viewer;
 
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -12,10 +13,12 @@ import javax.swing.JTextArea;
 import javax.swing.ImageIcon;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.FileDialog;
 import java.awt.Image;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,9 +31,39 @@ public class MainFrame {
 
   private static final int RIGHT_PANE_WIDTH = 250;
 
-  /** フォルダ選択ダイアログを開く（タスク 6.2 で実装予定） */
-  private static void openFolderDialog(JFrame frame) {
-    // stub: タスク 6.2 で実装
+  /**
+   * OS 標準のフォルダ選択ダイアログを開く。
+   * macOS では native Finder ダイアログ（java.awt.FileDialog）を使用し、
+   * 他 OS では JFileChooser を使用する。
+   *
+   * @param frame 親フレーム
+   * @return 選択されたディレクトリの絶対パス文字列、キャンセル時は null
+   */
+  private static String openFolderDialog(JFrame frame) {
+    boolean isMac = System.getProperty("os.name", "").toLowerCase().contains("mac");
+    if (isMac) {
+      System.setProperty("apple.awt.fileDialogForDirectories", "true");
+      try {
+        FileDialog dialog = new FileDialog(frame, "フォルダを選択", FileDialog.LOAD);
+        dialog.setVisible(true);
+        String dir = dialog.getDirectory();
+        String file = dialog.getFile();
+        if (file == null) {
+          return null;
+        }
+        return new File(dir, file).getAbsolutePath();
+      } finally {
+        System.setProperty("apple.awt.fileDialogForDirectories", "false");
+      }
+    } else {
+      JFileChooser chooser = new JFileChooser();
+      chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+      int result = chooser.showOpenDialog(frame);
+      if (result == JFileChooser.APPROVE_OPTION) {
+        return chooser.getSelectedFile().getAbsolutePath();
+      }
+      return null;
+    }
   }
 
   /** 指定フォルダから画像を読み込む（タスク 6.3 で実装予定） */
@@ -47,7 +80,12 @@ public class MainFrame {
     JMenuBar menuBar = new JMenuBar();
     JMenu fileMenu = new JMenu("File");
     JMenuItem openFolderItem = new JMenuItem("Open Folder");
-    openFolderItem.addActionListener(e -> openFolderDialog(frame));
+    openFolderItem.addActionListener(e -> {
+      String folderPath = openFolderDialog(frame);
+      if (folderPath != null) {
+        loadImagesFromFolder(folderPath);
+      }
+    });
     fileMenu.add(openFolderItem);
     menuBar.add(fileMenu);
     frame.setJMenuBar(menuBar);

@@ -85,7 +85,7 @@
   - _Boundary: MainFrame_
   - _Depends: 5.1_
 
-- [ ] 6.2 OS 標準フォルダ選択ダイアログを実装する
+- [x] 6.2 OS 標準フォルダ選択ダイアログを実装する
   - `openFolderDialog()` private メソッドを追加し、`os.name` で macOS を検出する
   - macOS: `apple.awt.fileDialogForDirectories=true` を設定した `java.awt.FileDialog` でディレクトリ選択を行う
   - 非 macOS: `JFileChooser.DIRECTORIES_ONLY` を設定した `JFileChooser` でディレクトリ選択を行う
