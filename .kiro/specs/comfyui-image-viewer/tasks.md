@@ -1,5 +1,7 @@
 # Implementation Plan
 
+## フェーズ1: 完了済みタスク（初期実装）
+
 - [ ] 1. Foundation: ImageFile ドメインモデルの作成
 - [x] 1.1 `ImageFile` record を作成する
   - PNG ファイルへの参照（`File`）とサムネイル（`ImageIcon`）を保持するイミュータブルモデルを作成する
@@ -38,7 +40,7 @@
   - _Requirements: 2.1, 2.4_
   - _Depends: 1.1, 2.2_
 
-- [ ] 4. Integration: メインウィンドウの統合
+- [ ] 4. Integration: メインウィンドウの統合（初期実装）
 - [x] 4.1 起動時フォルダ選択とフルサイズ画像表示を実装する
   - `Main.java` に `JFileChooser`（ディレクトリのみ選択可）を追加し、起動時にフォルダ選択ダイアログを表示する
   - キャンセル時は `System.exit(0)` でアプリを終了する
@@ -61,17 +63,68 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 5.1, 5.2, 5.3, 5.4_
   - _Depends: 4.1, 2.1_
 
-- [ ] 5. Validation: 動作確認
-- [ ]* 5.1 PngMetadataReader のユニットテストを実装する
+---
+
+## フェーズ2: UI改善（メニューバー・起動フロー変更）
+
+- [x] 5. Foundation: ThumbnailList の動的フォルダ読み込み対応
+- [x] 5.1 ThumbnailList に動的フォルダ読み込みメソッドを追加する
+  - コンストラクタで `imagePath == null` の場合は `ImageLoader` を起動しない（空状態で初期化）
+  - `model.clear()` 後に新しい `ImageLoader(model, path).execute()` を起動する `loadFolder(String path)` メソッドを追加する
+  - `ThumbnailList` を `null` パスで生成した際にサムネイルが空のリストで表示されること
+  - `loadFolder(newPath)` 呼び出し後にモデルがクリアされ新しいサムネイルが順次追加されること
+  - _Requirements: 1.2, 2.4, 2.6_
+  - _Boundary: ThumbnailList_
+
+- [ ] 6. Core: MainFrame のメニューバーとフォルダ選択実装
+- [ ] 6.1 MainFrame に JMenuBar と File > Open Folder メニューを追加する
+  - `createMainFrame` のシグネチャから `imagePath` 引数を削除し、空状態で起動するよう変更する
+  - `JMenuBar` を生成し `File` メニューに `Open Folder` メニュー項目を追加してフレームに設定する
+  - アプリ起動時にメニューバーが表示され `File > Open Folder` が選択可能なこと
+  - _Requirements: 1.3, 2.1_
+  - _Boundary: MainFrame_
+  - _Depends: 5.1_
+
+- [ ] 6.2 OS 標準フォルダ選択ダイアログを実装する
+  - `openFolderDialog()` private メソッドを追加し、`os.name` で macOS を検出する
+  - macOS: `apple.awt.fileDialogForDirectories=true` を設定した `java.awt.FileDialog` でディレクトリ選択を行う
+  - 非 macOS: `JFileChooser.DIRECTORIES_ONLY` を設定した `JFileChooser` でディレクトリ選択を行う
+  - macOS でネイティブ Finder ダイアログが表示されること、キャンセル時に `null` が返ること
+  - _Requirements: 2.2, 2.3, 2.5_
+  - _Boundary: MainFrame_
+
+- [ ] 6.3 フォルダ確定後のサムネイル読み込みロジックを実装する
+  - `loadImagesFromFolder(String path)` private メソッドを追加する
+  - `thumbnailList.loadFolder(path)` を呼び出してサムネイルリストをリフレッシュする
+  - `imageLabel.setIcon(null)` で現在表示中の画像をクリアする
+  - `Open Folder` でフォルダ確定後にサムネイルリストが更新されること
+  - 別フォルダ選択時に既存サムネイルがクリアされ新フォルダの PNG が読み込まれること
+  - _Requirements: 2.4, 2.5, 2.6_
+  - _Boundary: MainFrame_
+
+- [ ] 7. Integration: 起動フロー統合
+- [ ] 7.1 Main の起動フローを空状態起動に変更する
+  - `Main.java` から `JFileChooser` の生成・表示・パス取得と `System.exit(0)` を削除する
+  - `MainFrame.createMainFrame(title)` をパスなしで直接呼び出すよう変更する
+  - アプリを起動した際にフォルダ選択ダイアログが表示されず空のメインウィンドウが開くこと
+  - メニューバーが表示され `File > Open Folder` からフォルダ選択が起動できること
+  - _Requirements: 1.1, 1.2, 1.3_
+  - _Boundary: Main_
+  - _Depends: 6.1_
+
+- [ ] 8. Validation: 統合動作確認
+- [ ] 8.1 フォルダ選択・表示・切り替えの統合動作を確認する
+  - 起動時にフォルダ選択ダイアログが表示されず空ウィンドウが開くこと（1.1, 1.2, 1.3）
+  - `File > Open Folder` でフォルダを選択後、PNG サムネイルが表示されること（2.4）
+  - ダイアログキャンセル時に現在の表示状態が維持されること（2.5）
+  - 別フォルダを選択した際にサムネイルがクリアされ再読み込みされること（2.6）
+  - macOS でネイティブ Finder ダイアログが表示されること（2.2）
+  - サムネイル選択でフルサイズ画像が中央ペインに表示され、スクロールが動作すること（3.4, 4.1, 4.2）
+  - 右ペインのトグルボタンで折りたたみ/展開が動作すること（5.1, 5.2, 5.3, 5.4）
+  - PNG prompt メタデータが右ペインに表示されること（6.1, 6.2, 6.3, 6.4）
+  - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 5.1, 5.2, 5.3, 5.4, 6.1, 6.2, 6.3, 6.4_
+
+- [ ]* 8.2 PngMetadataReader のユニットテストを実装する
   - `prompt` tEXt チャンクを持つテスト用 PNG で正しい値が返ることを確認する
   - `prompt` チャンクを持たない PNG で `Optional.empty()` が返ることを確認する
-  - _Requirements: 5.1, 5.2_
-
-- [ ] 5.2 アプリケーション全体の統合動作を確認する
-  - 起動 → フォルダ選択 → サムネイル表示 → 画像選択 → フルサイズ表示の一連の動作が正常に動作すること
-  - キャンセル時にアプリが終了することを確認する
-  - トグルボタンのクリックで右ペインが開閉し、ボタンラベルが `▶` / `◀` に切り替わること
-  - ComfyUI 生成画像（`prompt` チャンク付き）を選択したとき右ペインにプロンプトが表示されること
-  - `prompt` チャンクのない PNG を選択したとき「プロンプト情報がありません」が表示されること
-  - PNG 以外のファイルがフォルダ内に混在していてもサムネイルリストに表示されないこと
-  - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 4.4, 5.1, 5.2, 5.3, 5.4_
+  - _Requirements: 6.1, 6.2_

@@ -37,7 +37,15 @@ public class ThumbnailList {
       }
     });
 
-    this.imageLoader = new ImageLoader(ImagePath, this.model);
+    if (ImagePath != null) {
+      this.imageLoader = new ImageLoader(ImagePath, this.model);
+      this.imageLoader.execute();
+    }
+  }
+
+  public void loadFolder(String folderPath) {
+    this.model.clear();
+    this.imageLoader = new ImageLoader(folderPath, this.model);
     this.imageLoader.execute();
   }
 
