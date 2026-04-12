@@ -30,8 +30,8 @@
   - _Boundary: MainFrame_
   - _Depends: 2.1_
 
-- [ ] 4. Core: ズームスライダーと⊖/⊕ボタンの実装
-- [ ] 4.1 ズームスライダーと縮小・拡大ボタンを実装する
+- [x] 4. Core: ズームスライダーと⊖/⊕ボタンの実装
+- [x] 4.1 ズームスライダーと縮小・拡大ボタンを実装する
   - `JSlider(10, 800, 100)` を生成してツールバーに追加する
   - スライダー両端に `JButton("⊖")` と `JButton("⊕")` を配置する
   - スライダーの `ChangeListener` でスライダー操作時に `zoomFactor[0] = value / 100.0` を設定して `updateImageDisplay.run()` を呼び出す

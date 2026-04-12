@@ -9,6 +9,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// タスク 4.1 用インポート
+// (JSlider は javax.swing.* に含まれるため追加不要)
+
 // タスク 3.1 用インポート
 // (JComboBox は javax.swing.* に含まれるため追加不要)
 
@@ -131,5 +134,48 @@ class MainFrameZoomTest {
         JComboBox<String> combo = combos.get(0);
         assertEquals("10%", combo.getItemAt(0), "最初の項目は '10%' であること");
         assertEquals("800%", combo.getItemAt(11), "最後の項目は '800%' であること");
+    }
+
+    // ─── タスク 4.1: ズームスライダーと⊖/⊕ボタン ──────────────────────────────
+
+    /** コンテナ内の全 JSlider をリストアップする */
+    private List<JSlider> findAllSliders(Container container) {
+        List<JSlider> result = new ArrayList<>();
+        for (Component c : container.getComponents()) {
+            if (c instanceof JSlider slider) {
+                result.add(slider);
+            }
+            if (c instanceof Container cont) {
+                result.addAll(findAllSliders(cont));
+            }
+        }
+        return result;
+    }
+
+    @Test
+    void zoomSlider_JSliderがToolbarに存在しmin10max800初期値100() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JSlider> sliders = findAllSliders((Container) frame.getContentPane());
+        assertFalse(sliders.isEmpty(), "JSlider がツールバーに存在すること");
+        JSlider slider = sliders.get(0);
+        assertEquals(10, slider.getMinimum(), "スライダーの最小値は 10 であること");
+        assertEquals(800, slider.getMaximum(), "スライダーの最大値は 800 であること");
+        assertEquals(100, slider.getValue(), "スライダーの初期値は 100 であること");
+    }
+
+    @Test
+    void zoomSlider_縮小ボタン_が存在する() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JButton> buttons = findAllButtons((Container) frame.getContentPane());
+        boolean found = buttons.stream().anyMatch(b -> "\u2296".equals(b.getText()));
+        assertTrue(found, "縮小ボタン（⊖ U+2296）がツールバーに存在すること");
+    }
+
+    @Test
+    void zoomSlider_拡大ボタン_が存在する() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JButton> buttons = findAllButtons((Container) frame.getContentPane());
+        boolean found = buttons.stream().anyMatch(b -> "\u2295".equals(b.getText()));
+        assertTrue(found, "拡大ボタン（⊕ U+2295）がツールバーに存在すること");
     }
 }

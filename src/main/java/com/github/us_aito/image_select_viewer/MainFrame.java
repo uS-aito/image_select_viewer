@@ -10,6 +10,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSlider;
 import javax.swing.JTextArea;
 import javax.swing.ImageIcon;
 import java.awt.BorderLayout;
@@ -33,6 +34,7 @@ import javax.imageio.ImageIO;
 public class MainFrame {
 
   private static final int RIGHT_PANE_WIDTH = 250;
+
 
   // ズーム倍率: 0 = フィットモード、正値 = 固定倍率（例: 2.0 = 200%）
   static final int[] ZOOM_LEVELS = {10, 25, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800};
@@ -201,6 +203,20 @@ public class MainFrame {
       }
     });
     zoomToolbar.add(zoomComboBox);
+
+    // ズームスライダーと⊖/⊕ボタン（タスク 4.1）
+    JButton minusButton = new JButton("\u2296"); // ⊖ CIRCLED MINUS
+    JSlider zoomSlider = new JSlider(10, 800, 100);
+    JButton plusButton = new JButton("\u2295"); // ⊕ CIRCLED PLUS
+
+    zoomSlider.addChangeListener(e -> {
+      zoomFactor[0] = zoomSlider.getValue() / 100.0;
+      updateImageDisplay.run();
+    });
+
+    zoomToolbar.add(minusButton);
+    zoomToolbar.add(zoomSlider);
+    zoomToolbar.add(plusButton);
 
     centerWrapper.add(zoomToolbar, BorderLayout.SOUTH);
 
