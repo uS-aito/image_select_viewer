@@ -14,6 +14,7 @@ import javax.swing.ImageIcon;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FileDialog;
+import java.awt.FlowLayout;
 import java.awt.Image;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -173,6 +174,16 @@ public class MainFrame {
         imageLabel.revalidate();
       }
     };
+
+    // ZoomToolbar: centerWrapper の SOUTH に常時表示されるツールバーパネル
+    JPanel zoomToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
+    JButton fitButton = new JButton("\u25A1"); // □ WHITE SQUARE
+    fitButton.addActionListener(e -> {
+      zoomFactor[0] = 0;
+      updateImageDisplay.run();
+    });
+    zoomToolbar.add(fitButton);
+    centerWrapper.add(zoomToolbar, BorderLayout.SOUTH);
 
     // ウィンドウリサイズ時に画像を再スケーリング
     imageScrollPane.addComponentListener(new ComponentAdapter() {

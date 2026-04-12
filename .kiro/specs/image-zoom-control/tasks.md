@@ -10,8 +10,8 @@
   - _Requirements: 4.1, 5.1, 5.2_
   - _Boundary: MainFrame_
 
-- [ ] 2. Core: ZoomToolbar パネルとフィットボタンの実装
-- [ ] 2.1 ZoomToolbar パネルを中央ペイン下部に追加し、フィットボタンを実装する
+- [x] 2. Core: ZoomToolbar パネルとフィットボタンの実装
+- [x] 2.1 ZoomToolbar パネルを中央ペイン下部に追加し、フィットボタンを実装する
   - フロー配置の `JPanel` を作成し、`centerWrapper` の `SOUTH` 領域に追加する
   - フィットボタン（□ アイコン）を生成し、クリック時に `zoomFactor[0] = 0` に設定して `updateImageDisplay.run()` を呼び出す
   - アプリ起動時に中央ペイン下部にツールバーパネルが常時表示されること
