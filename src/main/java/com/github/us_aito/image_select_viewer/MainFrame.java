@@ -31,6 +31,9 @@ public class MainFrame {
 
   private static final int RIGHT_PANE_WIDTH = 250;
 
+  // ズーム倍率: 0 = フィットモード、正値 = 固定倍率（例: 2.0 = 200%）
+  static final int[] ZOOM_LEVELS = {10, 25, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800};
+
   /**
    * OS 標準のフォルダ選択ダイアログを開く。
    * macOS では native Finder ダイアログ（java.awt.FileDialog）を使用し、
@@ -143,6 +146,9 @@ public class MainFrame {
     BufferedImage[] currentImage = {null};
     ImageFile[] currentImageFile = {null};
 
+    // ズーム倍率: 0 = フィットモード、正値 = 固定倍率（例: 2.0 = 200%）
+    double[] zoomFactor = {0};
+
     // 画像をビューポートサイズに合わせてスケーリング表示
     Runnable updateImageDisplay = () -> {
       if (currentImage[0] == null) return;
@@ -150,11 +156,22 @@ public class MainFrame {
       int vpH = imageScrollPane.getViewport().getHeight();
       if (vpW <= 0 || vpH <= 0) return;
       BufferedImage img = currentImage[0];
-      double scale = Math.min((double) vpW / img.getWidth(), (double) vpH / img.getHeight());
+      double scale;
+      if (zoomFactor[0] <= 0) {
+        // フィットモード: ビューポートに収まるスケールを計算
+        scale = Math.min((double) vpW / img.getWidth(), (double) vpH / img.getHeight());
+      } else {
+        // 固定倍率モード
+        scale = zoomFactor[0];
+      }
       int newW = (int) (img.getWidth() * scale);
       int newH = (int) (img.getHeight() * scale);
       Image scaled = img.getScaledInstance(newW, newH, Image.SCALE_SMOOTH);
       imageLabel.setIcon(new ImageIcon(scaled));
+      if (zoomFactor[0] > 0) {
+        imageLabel.setPreferredSize(new Dimension(newW, newH));
+        imageLabel.revalidate();
+      }
     };
 
     // ウィンドウリサイズ時に画像を再スケーリング
