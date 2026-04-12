@@ -254,8 +254,10 @@ public class MainFrame {
       imageLabel.setIcon(new ImageIcon(scaled));
       if (zoomFactor[0] > 0) {
         imageLabel.setPreferredSize(new Dimension(newW, newH));
-        imageLabel.revalidate();
+      } else {
+        imageLabel.setPreferredSize(null);
       }
+      imageLabel.revalidate();
     };
 
     // 同期ガードフラグ: コントロール間の無限フィードバックループを防ぐ（タスク 5.2）
