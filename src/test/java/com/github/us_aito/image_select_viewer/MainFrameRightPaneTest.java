@@ -1,11 +1,9 @@
 package com.github.us_aito.image_select_viewer;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import javax.swing.*;
 import java.awt.*;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,9 +13,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * 右ペインとトグルボタンの動作を検証するテスト（タスク 4.2）
  */
 class MainFrameRightPaneTest {
-
-    @TempDir
-    Path tempDir;
 
     /** コンテナ内の全 JButton をリストアップする */
     private List<JButton> findAllButtons(Container container) {
@@ -64,14 +59,14 @@ class MainFrameRightPaneTest {
 
     @Test
     void toggleButton_initialLabelIsRightArrow() {
-        JFrame frame = MainFrame.createMainFrame("テスト", tempDir.toAbsolutePath().toString());
+        JFrame frame = MainFrame.createMainFrame("テスト");
         JButton btn = getToggleButton(frame);
         assertEquals("\u25B6", btn.getText(), "起動時のトグルボタンラベルは ▶ であること");
     }
 
     @Test
     void promptPane_initiallyHidden() {
-        JFrame frame = MainFrame.createMainFrame("テスト", tempDir.toAbsolutePath().toString());
+        JFrame frame = MainFrame.createMainFrame("テスト");
         List<JScrollPane> promptPanes = getPromptScrollPanes(frame);
         assertFalse(promptPanes.isEmpty(), "JTextArea を含む JScrollPane（右ペイン）が存在すること");
         assertTrue(promptPanes.stream().anyMatch(sp -> !sp.isVisible()),
@@ -80,7 +75,7 @@ class MainFrameRightPaneTest {
 
     @Test
     void toggleButton_clickOnceExpandsRightPane() {
-        JFrame frame = MainFrame.createMainFrame("テスト", tempDir.toAbsolutePath().toString());
+        JFrame frame = MainFrame.createMainFrame("テスト");
         JButton btn = getToggleButton(frame);
 
         btn.doClick();
@@ -96,7 +91,7 @@ class MainFrameRightPaneTest {
 
     @Test
     void toggleButton_clickTwiceCollapsesRightPane() {
-        JFrame frame = MainFrame.createMainFrame("テスト", tempDir.toAbsolutePath().toString());
+        JFrame frame = MainFrame.createMainFrame("テスト");
         JButton btn = getToggleButton(frame);
 
         btn.doClick(); // 展開

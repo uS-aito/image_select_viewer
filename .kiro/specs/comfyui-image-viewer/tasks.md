@@ -77,7 +77,7 @@
   - _Boundary: ThumbnailList_
 
 - [ ] 6. Core: MainFrame のメニューバーとフォルダ選択実装
-- [ ] 6.1 MainFrame に JMenuBar と File > Open Folder メニューを追加する
+- [x] 6.1 MainFrame に JMenuBar と File > Open Folder メニューを追加する
   - `createMainFrame` のシグネチャから `imagePath` 引数を削除し、空状態で起動するよう変更する
   - `JMenuBar` を生成し `File` メニューに `Open Folder` メニュー項目を追加してフレームに設定する
   - アプリ起動時にメニューバーが表示され `File > Open Folder` が選択可能なこと

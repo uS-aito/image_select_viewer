@@ -3,6 +3,9 @@ package com.github.us_aito.image_select_viewer;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -25,10 +28,29 @@ public class MainFrame {
 
   private static final int RIGHT_PANE_WIDTH = 250;
 
-  public static JFrame createMainFrame(String title, String imagePath) {
+  /** フォルダ選択ダイアログを開く（タスク 6.2 で実装予定） */
+  private static void openFolderDialog(JFrame frame) {
+    // stub: タスク 6.2 で実装
+  }
+
+  /** 指定フォルダから画像を読み込む（タスク 6.3 で実装予定） */
+  private static void loadImagesFromFolder(String folderPath) {
+    // stub: タスク 6.3 で実装
+  }
+
+  public static JFrame createMainFrame(String title) {
     JFrame frame = new JFrame(title);
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     frame.setBounds(300, 80, 900, 600);
+
+    // メニューバー
+    JMenuBar menuBar = new JMenuBar();
+    JMenu fileMenu = new JMenu("File");
+    JMenuItem openFolderItem = new JMenuItem("Open Folder");
+    openFolderItem.addActionListener(e -> openFolderDialog(frame));
+    fileMenu.add(openFolderItem);
+    menuBar.add(fileMenu);
+    frame.setJMenuBar(menuBar);
 
     // メインパネル（BorderLayout）
     JPanel panel = new JPanel();
@@ -66,8 +88,8 @@ public class MainFrame {
     panel.add(centerWrapper, BorderLayout.CENTER);
     panel.add(promptScrollPane, BorderLayout.LINE_END);
 
-    // サムネイルリスト
-    ThumbnailList thumbnailList = new ThumbnailList(imagePath);
+    // サムネイルリスト（起動時はフォルダ未選択のため null を渡す）
+    ThumbnailList thumbnailList = new ThumbnailList(null);
 
     // 現在表示中の画像（スケーリング再計算のために保持）
     BufferedImage[] currentImage = {null};
