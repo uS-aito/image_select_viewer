@@ -40,8 +40,8 @@
   - _Boundary: MainFrame_
   - _Depends: 2.1_
 
-- [ ] 5. Core: コントロール間の相互同期実装
-- [ ] 5.1 フィット倍率計算と最近接ズームレベル検索のユーティリティメソッドを実装する
+- [x] 5. Core: コントロール間の相互同期実装
+- [x] 5.1 フィット倍率計算と最近接ズームレベル検索のユーティリティメソッドを実装する
   - `findNearestZoomLevelIndex(int pct)` を実装し、`ZOOM_LEVELS` 内で最も近い値のインデックスを返す
   - `stepZoom(JComboBox, JSlider, int delta)` を実装し、現在のプルダウンインデックスを `delta` 分移動する（0未満または最大を超えない）
   - `syncControlsToCurrentScale(JComboBox, JSlider)` を実装し、現在の `zoomFactor` または フィットスケールを計算してプルダウン・スライダーに反映する

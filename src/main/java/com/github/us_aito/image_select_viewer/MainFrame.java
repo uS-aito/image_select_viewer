@@ -40,6 +40,79 @@ public class MainFrame {
   static final int[] ZOOM_LEVELS = {10, 25, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800};
 
   /**
+   * ZOOM_LEVELS 配列の中で pct に最も近い値のインデックスを返す。
+   * 距離が同じ場合は先に見つかった（小さい方の）インデックスを返す。
+   *
+   * @param pct 検索する倍率（%値）
+   * @return 最も近い ZOOM_LEVELS 要素のインデックス（0〜ZOOM_LEVELS.length-1）
+   */
+  static int findNearestZoomLevelIndex(int pct) {
+    int nearest = 0;
+    int minDiff = Math.abs(ZOOM_LEVELS[0] - pct);
+    for (int i = 1; i < ZOOM_LEVELS.length; i++) {
+      int diff = Math.abs(ZOOM_LEVELS[i] - pct);
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearest = i;
+      }
+    }
+    return nearest;
+  }
+
+  /**
+   * 倍率プルダウンの選択インデックスを delta 分移動する。
+   * 0 未満または ZOOM_LEVELS.length-1 を超えないようにクランプする。
+   * スライダーも新しいインデックスに対応する ZOOM_LEVELS 値に更新する。
+   *
+   * @param combo  倍率プルダウン
+   * @param slider ズームスライダー
+   * @param delta  移動量（-1 で一段階縮小、+1 で一段階拡大）
+   */
+  static void stepZoom(JComboBox<String> combo, JSlider slider, int delta) {
+    int current = combo.getSelectedIndex();
+    int next = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, current + delta));
+    combo.setSelectedIndex(next);
+    slider.setValue(ZOOM_LEVELS[next]);
+  }
+
+  /**
+   * 現在の zoomFactor またはフィットスケールを計算し、
+   * プルダウンとスライダーを対応する値に同期する。
+   *
+   * @param combo        倍率プルダウン
+   * @param slider       ズームスライダー
+   * @param zoomFactor   ズーム倍率配列（[0]: 0=フィットモード、正値=固定倍率）
+   * @param currentImage 現在表示中の画像配列（[0]: null の場合は 100% を使用）
+   * @param scrollPane   スクロールペイン（null または画像 null の場合は 100% にフォールバック）
+   */
+  static void syncControlsToCurrentScale(JComboBox<String> combo, JSlider slider,
+      double[] zoomFactor, BufferedImage[] currentImage, JScrollPane scrollPane) {
+    int pct;
+    if (zoomFactor[0] <= 0) {
+      // フィットモード: 現在のフィットスケールを計算
+      if (currentImage == null || currentImage[0] == null || scrollPane == null) {
+        pct = 100;
+      } else {
+        int vpW = scrollPane.getViewport().getWidth();
+        int vpH = scrollPane.getViewport().getHeight();
+        if (vpW <= 0 || vpH <= 0) {
+          pct = 100;
+        } else {
+          double scale = Math.min((double) vpW / currentImage[0].getWidth(),
+                                  (double) vpH / currentImage[0].getHeight());
+          pct = (int) Math.round(scale * 100);
+        }
+      }
+    } else {
+      pct = (int) Math.round(zoomFactor[0] * 100);
+    }
+    pct = Math.max(10, Math.min(800, pct));
+    int idx = findNearestZoomLevelIndex(pct);
+    combo.setSelectedIndex(idx);
+    slider.setValue(pct);
+  }
+
+  /**
    * OS 標準のフォルダ選択ダイアログを開く。
    * macOS では native Finder ダイアログ（java.awt.FileDialog）を使用し、
    * 他 OS では JFileChooser を使用する。

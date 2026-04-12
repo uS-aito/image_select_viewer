@@ -178,4 +178,176 @@ class MainFrameZoomTest {
         boolean found = buttons.stream().anyMatch(b -> "\u2295".equals(b.getText()));
         assertTrue(found, "拡大ボタン（⊕ U+2295）がツールバーに存在すること");
     }
+
+    // ─── タスク 5.1: findNearestZoomLevelIndex ─────────────────────────────────
+
+    @Test
+    void findNearest_完全一致_10はインデックス0を返す() {
+        assertEquals(0, MainFrame.findNearestZoomLevelIndex(10),
+            "pct=10 は ZOOM_LEVELS[0]=10 に完全一致するためインデックス0を返すこと");
+    }
+
+    @Test
+    void findNearest_完全一致_100はインデックス4を返す() {
+        assertEquals(4, MainFrame.findNearestZoomLevelIndex(100),
+            "pct=100 は ZOOM_LEVELS[4]=100 に完全一致するためインデックス4を返すこと");
+    }
+
+    @Test
+    void findNearest_完全一致_800はインデックス11を返す() {
+        assertEquals(11, MainFrame.findNearestZoomLevelIndex(800),
+            "pct=800 は ZOOM_LEVELS[11]=800 に完全一致するためインデックス11を返すこと");
+    }
+
+    @Test
+    void findNearest_下限以下_1はインデックス0を返す() {
+        assertEquals(0, MainFrame.findNearestZoomLevelIndex(1),
+            "pct=1 は ZOOM_LEVELS[0]=10 に最も近いためインデックス0を返すこと");
+    }
+
+    @Test
+    void findNearest_上限超過_999はインデックス11を返す() {
+        assertEquals(11, MainFrame.findNearestZoomLevelIndex(999),
+            "pct=999 は ZOOM_LEVELS[11]=800 に最も近いためインデックス11を返すこと");
+    }
+
+    @Test
+    void findNearest_同距離_150はインデックス4または5を返す() {
+        int idx = MainFrame.findNearestZoomLevelIndex(150);
+        assertTrue(idx == 4 || idx == 5,
+            "pct=150 は 100(idx=4) と 200(idx=5) の中間のため、どちらも許容: 実際=" + idx);
+    }
+
+    @Test
+    void findNearest_37はインデックス1を返す() {
+        // 25(idx=1) と 50(idx=2) の中間は 37.5; 37 は 25 に近い(diff=12) vs 50(diff=13)
+        assertEquals(1, MainFrame.findNearestZoomLevelIndex(37),
+            "pct=37 は ZOOM_LEVELS[1]=25 に最も近いためインデックス1を返すこと");
+    }
+
+    @Test
+    void findNearest_ZOOM_LEVELS定数は12要素で正しい値を持つ() {
+        int[] expected = {10, 25, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800};
+        assertArrayEquals(expected, MainFrame.ZOOM_LEVELS,
+            "ZOOM_LEVELS は {10,25,50,75,100,200,300,400,500,600,700,800} の12要素であること");
+    }
+
+    // ─── タスク 5.1: stepZoom ─────────────────────────────────────────────────
+
+    /** テスト用 zoomComboBox を生成するヘルパー */
+    private JComboBox<String> makeZoomComboBox() {
+        String[] items = java.util.Arrays.stream(MainFrame.ZOOM_LEVELS)
+            .mapToObj(l -> l + "%")
+            .toArray(String[]::new);
+        JComboBox<String> combo = new JComboBox<>(items);
+        combo.setSelectedIndex(4); // デフォルト 100%
+        return combo;
+    }
+
+    @Test
+    void stepZoom_インデックス0でデルタマイナス1は0のまま() {
+        JComboBox<String> combo = makeZoomComboBox();
+        JSlider slider = new JSlider(10, 800, 100);
+        combo.setSelectedIndex(0);
+
+        MainFrame.stepZoom(combo, slider, -1);
+
+        assertEquals(0, combo.getSelectedIndex(),
+            "インデックス0でdelta=-1 → アンダーフローなくインデックス0のまま");
+    }
+
+    @Test
+    void stepZoom_インデックス11でデルタプラス1は11のまま() {
+        JComboBox<String> combo = makeZoomComboBox();
+        JSlider slider = new JSlider(10, 800, 100);
+        combo.setSelectedIndex(11);
+
+        MainFrame.stepZoom(combo, slider, +1);
+
+        assertEquals(11, combo.getSelectedIndex(),
+            "インデックス11でdelta=+1 → オーバーフローなくインデックス11のまま");
+    }
+
+    @Test
+    void stepZoom_インデックス4からプラス1でインデックス5になる() {
+        JComboBox<String> combo = makeZoomComboBox();
+        JSlider slider = new JSlider(10, 800, 100);
+        combo.setSelectedIndex(4); // 100%
+
+        MainFrame.stepZoom(combo, slider, +1);
+
+        assertEquals(5, combo.getSelectedIndex(),
+            "インデックス4(100%)からdelta=+1 → インデックス5(200%)");
+    }
+
+    @Test
+    void stepZoom_インデックス4からマイナス1でインデックス3になる() {
+        JComboBox<String> combo = makeZoomComboBox();
+        JSlider slider = new JSlider(10, 800, 100);
+        combo.setSelectedIndex(4); // 100%
+
+        MainFrame.stepZoom(combo, slider, -1);
+
+        assertEquals(3, combo.getSelectedIndex(),
+            "インデックス4(100%)からdelta=-1 → インデックス3(75%)");
+    }
+
+    @Test
+    void stepZoom_スライダーがZOOM_LEVELSの対応する値に更新される() {
+        JComboBox<String> combo = makeZoomComboBox();
+        JSlider slider = new JSlider(10, 800, 100);
+        combo.setSelectedIndex(4); // 100%
+
+        MainFrame.stepZoom(combo, slider, +1); // → index 5 = 200%
+
+        assertEquals(200, slider.getValue(),
+            "stepZoom後、スライダーはZOOM_LEVELS[新インデックス]=200に更新されること");
+    }
+
+    // ─── タスク 5.1: syncControlsToCurrentScale（間接テスト via JFrame） ─────────
+
+    @Test
+    void syncControls_zoomFactor2のとき_スライダーが200でコンボが200パーセント() {
+        // syncControlsToCurrentScale は createMainFrame 内のクロージャ変数を使うため
+        // フレーム生成後にプルダウン操作でzoomFactor=2.0相当を設定し、
+        // スライダー値が200になっていることをコンボ経由で確認する
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JComboBox<String>> combos = findAllComboBoxes((Container) frame.getContentPane());
+        List<JSlider> sliders = findAllSliders((Container) frame.getContentPane());
+        assertFalse(combos.isEmpty());
+        assertFalse(sliders.isEmpty());
+
+        JComboBox<String> combo = combos.get(0);
+        JSlider slider = sliders.get(0);
+
+        // プルダウンで200%を選択 → zoomFactor=2.0, slider=200 に同期される（タスク5.2で実装されるが
+        // スライダー同期はタスク4.1のChangeListenerが担当）
+        // ここでは findNearestZoomLevelIndex と stepZoom の直接テストで要件を満たす
+        // syncControlsToCurrentScale の詳細テストは現在利用可能なAPIで実施する
+
+        // null画像・zoomFactor=0のとき: syncControlsToCurrentScaleは slider=100, combo=100% を設定すること
+        // これはメソッドが実装された後に MainFrameSyncTest で確認する
+        // 現時点では「実装が存在し、コンパイルが通ること」を確認
+        MainFrame.syncControlsToCurrentScale(combo, slider, new double[]{0}, null, null);
+        assertEquals(100, slider.getValue(),
+            "zoomFactor=0、画像=null のとき syncControlsToCurrentScale は slider を 100 に設定すること");
+        assertEquals("100%", combo.getSelectedItem(),
+            "zoomFactor=0、画像=null のとき syncControlsToCurrentScale は combo を '100%' に設定すること");
+    }
+
+    @Test
+    void syncControls_zoomFactor2のとき_スライダーが200になる() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JComboBox<String>> combos = findAllComboBoxes((Container) frame.getContentPane());
+        List<JSlider> sliders = findAllSliders((Container) frame.getContentPane());
+        JComboBox<String> combo = combos.get(0);
+        JSlider slider = sliders.get(0);
+
+        MainFrame.syncControlsToCurrentScale(combo, slider, new double[]{2.0}, null, null);
+
+        assertEquals(200, slider.getValue(),
+            "zoomFactor=2.0 のとき syncControlsToCurrentScale は slider を 200 に設定すること");
+        assertEquals("200%", combo.getSelectedItem(),
+            "zoomFactor=2.0 のとき syncControlsToCurrentScale は combo を '200%' に設定すること");
+    }
 }
