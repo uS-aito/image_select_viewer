@@ -350,4 +350,78 @@ class MainFrameZoomTest {
         assertEquals("200%", combo.getSelectedItem(),
             "zoomFactor=2.0 のとき syncControlsToCurrentScale は combo を '200%' に設定すること");
     }
+
+    // ─── タスク 5.2: コントロール間の相互同期 ─────────────────────────────────────
+
+    /**
+     * ⊖ ボタンが ActionListener を持つことを確認する（タスク 5.2）
+     * ZOOM_SYNC_ENABLED フラグが OFF の間はリスナー未登録のため FAIL する
+     */
+    @Test
+    void sync_縮小ボタンにActionListenerが登録されている() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JButton> buttons = findAllButtons((Container) frame.getContentPane());
+        JButton minusBtn = buttons.stream()
+            .filter(b -> "\u2296".equals(b.getText()))
+            .findFirst()
+            .orElse(null);
+        assertNotNull(minusBtn, "縮小ボタン（⊖）が存在すること");
+        assertTrue(minusBtn.getActionListeners().length > 0,
+            "縮小ボタン（⊖）に ActionListener が登録されていること");
+    }
+
+    /**
+     * ⊕ ボタンが ActionListener を持つことを確認する（タスク 5.2）
+     * ZOOM_SYNC_ENABLED フラグが OFF の間はリスナー未登録のため FAIL する
+     */
+    @Test
+    void sync_拡大ボタンにActionListenerが登録されている() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JButton> buttons = findAllButtons((Container) frame.getContentPane());
+        JButton plusBtn = buttons.stream()
+            .filter(b -> "\u2295".equals(b.getText()))
+            .findFirst()
+            .orElse(null);
+        assertNotNull(plusBtn, "拡大ボタン（⊕）が存在すること");
+        assertTrue(plusBtn.getActionListeners().length > 0,
+            "拡大ボタン（⊕）に ActionListener が登録されていること");
+    }
+
+    /**
+     * プルダウン選択後にスライダーが選択倍率に同期されること（タスク 5.2、要件 3.3）
+     * ZOOM_SYNC_ENABLED が OFF の間は同期されないため FAIL する
+     */
+    @Test
+    void sync_プルダウンで200選択後スライダーが200になる() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JComboBox<String>> combos = findAllComboBoxes((Container) frame.getContentPane());
+        List<JSlider> sliders = findAllSliders((Container) frame.getContentPane());
+        JComboBox<String> combo = combos.get(0);
+        JSlider slider = sliders.get(0);
+
+        // 200% を選択
+        combo.setSelectedItem("200%");
+
+        assertEquals(200, slider.getValue(),
+            "プルダウンで '200%' を選択後、スライダーは 200 に同期されること（要件 3.3）");
+    }
+
+    /**
+     * スライダーを 300 に設定後にプルダウンが最近接選択肢（300%）に同期されること（タスク 5.2、要件 4.3）
+     * ZOOM_SYNC_ENABLED が OFF の間は同期されないため FAIL する
+     */
+    @Test
+    void sync_スライダーを300に設定後プルダウンが300パーセントになる() {
+        JFrame frame = MainFrame.createMainFrame("テスト");
+        List<JComboBox<String>> combos = findAllComboBoxes((Container) frame.getContentPane());
+        List<JSlider> sliders = findAllSliders((Container) frame.getContentPane());
+        JComboBox<String> combo = combos.get(0);
+        JSlider slider = sliders.get(0);
+
+        // スライダーを 300 に設定
+        slider.setValue(300);
+
+        assertEquals("300%", combo.getSelectedItem(),
+            "スライダーを 300 に設定後、プルダウンは '300%'（最近接選択肢）に同期されること（要件 4.3）");
+    }
 }

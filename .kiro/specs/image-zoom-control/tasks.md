@@ -50,7 +50,7 @@
   - _Boundary: MainFrame_
   - _Depends: 3.1, 4.1_
 
-- [ ] 5.2 各コントロールのアクションリスナーに相互同期を組み込む
+- [x] 5.2 各コントロールのアクションリスナーに相互同期を組み込む
   - フィットボタン押下後に `syncControlsToCurrentScale()` を呼び出してプルダウン・スライダーを更新する
   - プルダウン選択後にスライダーを選択倍率に同期する（`zoomSlider.setValue(selectedPct)`）
   - スライダー操作後に `findNearestZoomLevelIndex()` を使用してプルダウンを最近接選択肢に同期する

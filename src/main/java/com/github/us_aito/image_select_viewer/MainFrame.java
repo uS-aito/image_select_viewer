@@ -35,7 +35,6 @@ public class MainFrame {
 
   private static final int RIGHT_PANE_WIDTH = 250;
 
-
   // ズーム倍率: 0 = フィットモード、正値 = 固定倍率（例: 2.0 = 200%）
   static final int[] ZOOM_LEVELS = {10, 25, 50, 75, 100, 200, 300, 400, 500, 600, 700, 800};
 
@@ -252,14 +251,12 @@ public class MainFrame {
       }
     };
 
+    // 同期ガードフラグ: コントロール間の無限フィードバックループを防ぐ（タスク 5.2）
+    boolean[] syncing = {false};
+
     // ZoomToolbar: centerWrapper の SOUTH に常時表示されるツールバーパネル
     JPanel zoomToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
     JButton fitButton = new JButton("\u25A1"); // □ WHITE SQUARE
-    fitButton.addActionListener(e -> {
-      zoomFactor[0] = 0;
-      updateImageDisplay.run();
-    });
-    zoomToolbar.add(fitButton);
 
     // 倍率プルダウン（タスク 3.1）
     String[] zoomItems = Arrays.stream(ZOOM_LEVELS)
@@ -267,23 +264,57 @@ public class MainFrame {
         .toArray(String[]::new);
     JComboBox<String> zoomComboBox = new JComboBox<>(zoomItems);
     zoomComboBox.setSelectedIndex(4); // デフォルト: 100%
-    zoomComboBox.addActionListener(e -> {
-      String selected = (String) zoomComboBox.getSelectedItem();
-      if (selected != null) {
-        int pct = Integer.parseInt(selected.replace("%", ""));
-        zoomFactor[0] = pct / 100.0;
-        updateImageDisplay.run();
-      }
-    });
-    zoomToolbar.add(zoomComboBox);
 
     // ズームスライダーと⊖/⊕ボタン（タスク 4.1）
     JButton minusButton = new JButton("\u2296"); // ⊖ CIRCLED MINUS
     JSlider zoomSlider = new JSlider(10, 800, 100);
     JButton plusButton = new JButton("\u2295"); // ⊕ CIRCLED PLUS
 
+    // フィットボタン（タスク 2.1 + 5.2 同期）
+    fitButton.addActionListener(e -> {
+      zoomFactor[0] = 0;
+      updateImageDisplay.run();
+      syncing[0] = true;
+      syncControlsToCurrentScale(zoomComboBox, zoomSlider, zoomFactor, currentImage, imageScrollPane);
+      syncing[0] = false;
+    });
+    zoomToolbar.add(fitButton);
+
+    // プルダウン選択リスナー（タスク 3.1 + 5.2 スライダー同期）
+    zoomComboBox.addActionListener(e -> {
+      if (syncing[0]) return;
+      String selected = (String) zoomComboBox.getSelectedItem();
+      if (selected != null) {
+        int pct = Integer.parseInt(selected.replace("%", ""));
+        zoomFactor[0] = pct / 100.0;
+        updateImageDisplay.run();
+        syncing[0] = true;
+        zoomSlider.setValue(pct);
+        syncing[0] = false;
+      }
+    });
+    zoomToolbar.add(zoomComboBox);
+
+    // スライダー ChangeListener（タスク 4.1 + 5.2 プルダウン同期）
     zoomSlider.addChangeListener(e -> {
+      if (syncing[0]) return;
       zoomFactor[0] = zoomSlider.getValue() / 100.0;
+      updateImageDisplay.run();
+      syncing[0] = true;
+      int idx = findNearestZoomLevelIndex(zoomSlider.getValue());
+      zoomComboBox.setSelectedIndex(idx);
+      syncing[0] = false;
+    });
+
+    // ⊖/⊕ ボタンリスナー（タスク 5.2: stepZoom によるプルダウン・スライダー・画像連動）
+    minusButton.addActionListener(e -> {
+      stepZoom(zoomComboBox, zoomSlider, -1);
+      zoomFactor[0] = ZOOM_LEVELS[zoomComboBox.getSelectedIndex()] / 100.0;
+      updateImageDisplay.run();
+    });
+    plusButton.addActionListener(e -> {
+      stepZoom(zoomComboBox, zoomSlider, 1);
+      zoomFactor[0] = ZOOM_LEVELS[zoomComboBox.getSelectedIndex()] / 100.0;
       updateImageDisplay.run();
     });
 
