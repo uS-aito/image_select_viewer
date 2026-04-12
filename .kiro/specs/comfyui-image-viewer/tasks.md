@@ -102,8 +102,8 @@
   - _Requirements: 2.4, 2.5, 2.6_
   - _Boundary: MainFrame_
 
-- [ ] 7. Integration: 起動フロー統合
-- [ ] 7.1 Main の起動フローを空状態起動に変更する
+- [x] 7. Integration: 起動フロー統合
+- [x] 7.1 Main の起動フローを空状態起動に変更する
   - `Main.java` から `JFileChooser` の生成・表示・パス取得と `System.exit(0)` を削除する
   - `MainFrame.createMainFrame(title)` をパスなしで直接呼び出すよう変更する
   - アプリを起動した際にフォルダ選択ダイアログが表示されず空のメインウィンドウが開くこと
