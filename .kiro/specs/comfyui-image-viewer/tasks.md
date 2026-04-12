@@ -93,7 +93,7 @@
   - _Requirements: 2.2, 2.3, 2.5_
   - _Boundary: MainFrame_
 
-- [ ] 6.3 フォルダ確定後のサムネイル読み込みロジックを実装する
+- [x] 6.3 フォルダ確定後のサムネイル読み込みロジックを実装する
   - `loadImagesFromFolder(String path)` private メソッドを追加する
   - `thumbnailList.loadFolder(path)` を呼び出してサムネイルリストをリフレッシュする
   - `imageLabel.setIcon(null)` で現在表示中の画像をクリアする

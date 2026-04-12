@@ -66,9 +66,17 @@ public class MainFrame {
     }
   }
 
-  /** 指定フォルダから画像を読み込む（タスク 6.3 で実装予定） */
-  private static void loadImagesFromFolder(String folderPath) {
-    // stub: タスク 6.3 で実装
+  /**
+   * 指定フォルダから画像を読み込む。
+   * サムネイルリストをリフレッシュし、現在表示中の画像をクリアする。
+   *
+   * @param folderPath 読み込むフォルダの絶対パス（非 null）
+   * @param thumbnailList サムネイルリスト
+   * @param imageLabel 画像表示ラベル
+   */
+  private static void loadImagesFromFolder(String folderPath, ThumbnailList thumbnailList, JLabel imageLabel) {
+    imageLabel.setIcon(null);
+    thumbnailList.loadFolder(folderPath);
   }
 
   public static JFrame createMainFrame(String title) {
@@ -80,12 +88,6 @@ public class MainFrame {
     JMenuBar menuBar = new JMenuBar();
     JMenu fileMenu = new JMenu("File");
     JMenuItem openFolderItem = new JMenuItem("Open Folder");
-    openFolderItem.addActionListener(e -> {
-      String folderPath = openFolderDialog(frame);
-      if (folderPath != null) {
-        loadImagesFromFolder(folderPath);
-      }
-    });
     fileMenu.add(openFolderItem);
     menuBar.add(fileMenu);
     frame.setJMenuBar(menuBar);
@@ -128,6 +130,14 @@ public class MainFrame {
 
     // サムネイルリスト（起動時はフォルダ未選択のため null を渡す）
     ThumbnailList thumbnailList = new ThumbnailList(null);
+
+    // Open Folder アクションリスナー（thumbnailList・imageLabel が宣言された後に登録）
+    openFolderItem.addActionListener(e -> {
+      String folderPath = openFolderDialog(frame);
+      if (folderPath != null) {
+        loadImagesFromFolder(folderPath, thumbnailList, imageLabel);
+      }
+    });
 
     // 現在表示中の画像（スケーリング再計算のために保持）
     BufferedImage[] currentImage = {null};
